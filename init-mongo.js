@@ -1,13 +1,13 @@
-// init-db.js
+// init-mongo.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Conectar ao MongoDB
+// Conectar ao MongoDB online
 await mongoose.connect(process.env.MONGO_URI);
-console.log('Conectado ao MongoDB!');
+console.log('Conectado ao MongoDB online!');
 
 // --- MODELS ---
 // User
@@ -44,8 +44,7 @@ const settingSchema = new mongoose.Schema({
 const Setting = mongoose.model('Setting', settingSchema);
 
 // --- SEED DATA ---
-
-// 1. Categorias
+// Categorias
 const categories = ['Rede / Internet', 'Hardware', 'Software', 'Acesso / Senha', 'Solicitação de Serviço'];
 for (const name of categories) {
   await Category.updateOne(
@@ -56,7 +55,7 @@ for (const name of categories) {
 }
 console.log('Categorias criadas ou atualizadas.');
 
-// 2. Settings
+// Settings
 const settings = [
   { key: 'site.title', value: 'Henet - Sistema de Chamados' },
   { key: 'site.subtitle', value: 'Abra um chamado e nossa equipe de TI irá lhe atender.' },
@@ -67,7 +66,7 @@ for (const s of settings) {
 }
 console.log('Settings criadas ou atualizadas.');
 
-// 3. Superadmin
+// Superadmin
 const adminEmail = 'Tiadm@henet.com.br';
 const adminPass = 'Grupoti123@';
 const adminName = 'Admin Henet';
@@ -89,7 +88,7 @@ if (!admin) {
   console.log('Superadmin já existia — role garantida.');
 }
 
-// 4. Técnico vinculado
+// Técnico vinculado
 const techExists = await Technician.findOne({ userId: admin._id });
 if (!techExists) {
   await Technician.create({ userId: admin._id, displayName: adminName, active: true });
