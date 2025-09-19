@@ -10,9 +10,8 @@ import multer from 'multer';
 import fs from 'fs';
 import helmet from 'helmet';
 import crypto from 'crypto';
-import connectMongo from 'connect-mongo';
+import MongoStore from 'connect-mongo'; // <- Import direto como classe
 
-const MongoStore = connectMongo(session);
 const app = express();
 const __dirname = path.resolve(); // necessário em ES Modules
 
@@ -92,7 +91,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'troque_essa_chave',
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: MONGO_URI }),
+  store: MongoStore.create({ mongoUrl: MONGO_URI }), // <- Correção aqui
   cookie: { maxAge: 24 * 3600 * 1000 }
 }));
 
@@ -286,19 +285,4 @@ app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'),
   safeJson(res, { ok: true });
 });
 
-// ---- UPLOAD GENÉRICO ----
-app.post('/api/upload', requireLogin, upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file' });
-  const dest = path.join(uploadDir, req.file.filename + path.extname(req.file.originalname));
-  fs.renameSync(req.file.path, dest);
-  safeJson(res, { ok: true, url: `/uploads/${path.basename(dest)}` });
-});
-
-// ---- STATIC FILES ----
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/submit.html', (req,res)=>res.sendFile(path.join(__dirname,'public','submit.html')));
-app.get('/admin.html', (req,res)=>res.sendFile(path.join(__dirname,'public','admin-edit.html')));
-app.get('*', (req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log(`🚀 Server rodando na porta ${PORT}`));
+//
