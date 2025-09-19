@@ -13,3 +13,4 @@
 - Código fácil de estender: adicione e-mails automáticos (nodemailer), notificações (socket.io), export CSV, filtros.
 - Para produção, proteja a `session secret`, use HTTPS, e migre para Postgres/MySQL se precisar de mais escala.
 "# Chamados-Ti-Henet"  
+"# Chamados-Ti-Henet" 
