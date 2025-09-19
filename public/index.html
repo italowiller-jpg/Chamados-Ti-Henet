@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>He_Net - Painel</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="/styles.css"/>
+  <!-- ícones rápidos (opcional) -->
+  <style>
+    /* Pequena correção local para garantir boa renderização do SVG eye */
+    .pwd-toggle { cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+    .ticket-item { 
+      padding:8px; 
+      border-bottom:1px solid #ddd; 
+      cursor:pointer; 
+    }
+    .ticket-item:hover { background:#f7f7f7; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="logo">
+        <img src="/logo.png" alt="logo" style="width:100%;height:100%;object-fit:cover">
+      </div>
+      <div class="text">
+        <strong id="siteTitle">He_Net</strong>
+        <div class="small" id="siteSubtitle">Sistema de Chamados</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="toSubmit" class="btn">Abrir Chamado</button>
+      <button id="openAdmin" class="btn ghost" style="display:none" title="Abrir painel SuperADM">Admin</button>
+      <button id="openReports" class="btn ghost" style="display:none" title="Relatórios Técnicos">Relatórios</button>
+      <button id="logoutBtn" class="btn secondary" style="display:none">Sair</button>
+      <button id="loginBtn" class="btn outline">Entrar</button>
+    </div>
+  </div>
+
+  <main class="main-degrade">
+    <div class="container">
+
+      <!-- CARTÃO PRINCIPAL - LOGIN -->
+      <section id="hero" class="hero-area">
+        <div class="hero-left">
+          <h1>Bem-vindo ao <strong>He_Net</strong></h1>
+          <p class="lead">Abra e acompanhe chamados com facilidade. Faça login para gerenciar internamente ou use o formulário público para enviar chamados.</p>
+        </div>
+
+        <div class="hero-right">
+          <div id="loginCard" class="card login-card">
+            <h3>Entrar no painel</h3>
+
+            <form id="loginForm" class="form-vertical" onsubmit="return false;">
+              <label class="label">E-mail</label>
+              <input id="email" class="input" type="email" placeholder="seu@email.com" autocomplete="username" required>
+
+              <label class="label">Senha</label>
+              <div style="position:relative">
+                <input id="password" class="input" type="password" placeholder="••••••••" autocomplete="current-password" required>
+                <button type="button" id="togglePwd" class="btn ghost pwd-toggle" title="Mostrar/ocultar senha" style="position:absolute; right:6px; top:6px; height:34px; padding:6px 8px">👁️</button>
+              </div>
+
+              <div class="form-row" style="align-items:center;justify-content:space-between;margin-top:8px">
+                <label style="display:flex;align-items:center;gap:8px;font-size:14px">
+                  <input id="rememberMe" type="checkbox" style="width:16px;height:16px;margin:0"> Manter conectado
+                </label>
+                <a href="#" class="mini">Esqueci a senha</a>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button id="loginBtnInline" class="btn" type="button">Entrar</button>
+                <button id="openPublic" class="btn ghost" type="button" onclick="location.href='/submit.html'">Abrir chamado</button>
+              </div>
+
+              <div id="loginResult" class="small" style="margin-top:10px;color:#c00;min-height:18px"></div>
+            </form>
+
+            <div class="small muted" style="margin-top:10px">
+              Faça login com sua conta interna para gerenciar chamados. Ou use o botão <strong>Abrir chamado</strong> para enviar um chamado público.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DASHBOARD (escondido até login) -->
+      <section id="dashboard" style="display:none;margin-top:20px">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Chamados</strong></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="filterStatus" class="input" style="display:inline-block;width:auto">
+                <option value="">Todos</option>
+                <option value="new">Novo</option>
+                <option value="in_progress">Em andamento</option>
+                <option value="resolved">Concluído</option>
+                <option value="closed">Fechado</option>
+              </select>
+              <button id="refreshBtn" class="btn secondary">Atualizar</button>
+            </div>
+          </div>
+
+          <!-- LISTAGEM DE TICKETS -->
+          <div id="ticketsList" style="margin-top:12px">
+            <!-- Exemplo inicial (será substituído pelo JS) -->
+            <div class="ticket-item" data-id="12345">
+              <strong>#12345</strong> - Problema na conexão (Novo)
+            </div>
+            <div class="ticket-item" data-id="12346">
+              <strong>#12346</strong> - Impressora não funciona (Em andamento)
+            </div>
+          </div>
+        </div>
+
+        <!-- DETALHES DO CHAMADO -->
+        <div class="card" style="margin-top:12px">
+          <h4>Detalhes do chamado</h4>
+          <div id="ticketDetail" class="ticket-detail">
+            Selecione um chamado para ver detalhes
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="footer">He_Net - Sistema de Chamados</footer>
+
+  <script src="/app.js"></script>
+  <script src="/admin-check.js"></script>
+
+  <!-- Script de UI (lembrar/mostrar senha + demo tickets) -->
+  <script>
+    (function(){
+      // Pré-preenchimento do email se "lembrar" estiver ativo
+      const stored = localStorage.getItem('henet_remember');
+      if (stored) {
+        try {
+          const o = JSON.parse(stored);
+          if (o && o.email) document.getElementById('email').value = o.email;
+          if (o && o.remember) document.getElementById('rememberMe').checked = true;
+        } catch(e){}
+      }
+
+      // toggle show/hide password
+      const pwd = document.getElementById('password');
+      const btn = document.getElementById('togglePwd');
+      btn?.addEventListener('click', ()=> {
+        if (!pwd) return;
+        if (pwd.type === 'password') { pwd.type = 'text'; btn.textContent = '🙈'; }
+        else { pwd.type = 'password'; btn.textContent = '👁️'; }
+      });
+
+      // login handler
+      const rememberCheckbox = document.getElementById('rememberMe');
+      async function handleLogin() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!email || !password) {
+          document.getElementById('loginResult').innerText = 'Preencha email e senha';
+          return;
+        }
+        document.getElementById('loginResult').innerText = 'Aguarde...';
+        document.getElementById('loginBtnInline').dispatchEvent(new Event('doLogin'));
+
+        setTimeout(()=> {
+          if (rememberCheckbox.checked) localStorage.setItem('henet_remember', JSON.stringify({ email, remember:true }));
+          else localStorage.removeItem('henet_remember');
+        }, 600);
+      }
+
+      document.getElementById('loginBtnInline')?.addEventListener('click', handleLogin);
+      document.getElementById('loginBtn')?.addEventListener('click', ()=> {
+        document.getElementById('loginCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+
+      // DEMO: quando clica em ticket mostra detalhes
+      document.querySelectorAll('.ticket-item').forEach(item=>{
+        item.addEventListener('click', ()=>{
+          const id = item.getAttribute('data-id');
+          const title = item.textContent;
+          document.getElementById('ticketDetail').innerHTML = `
+            <p><strong>Número:</strong> #${id}</p>
+            <p><strong>Título:</strong> ${title}</p>
+            <p><strong>Status:</strong> Em andamento</p>
+            <p><strong>Descrição:</strong> Exemplo de descrição do chamado #${id}.</p>
+          `;
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

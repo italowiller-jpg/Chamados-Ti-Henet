@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <title>ADM — Edição do Site — He_Net</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="/styles.css"/>
+  <style>
+    /* pequenos ajustes locais */
+    .split { display:flex; gap:18px; align-items:flex-start; }
+    .left { flex:1; }
+    .right { width:360px; flex-shrink:0; }
+    @media(max-width:980px){ .split{flex-direction:column} .right{width:100%} }
+    .muted{ color:var(--muted); font-size:13px }
+    .mini { font-size:12px; color:#777 }
+    .action-row { display:flex; gap:8px; align-items:center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="logo"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover"></div>
+      <div class="text"><strong>ADM (Edição do Site)</strong><div class="small">Editar textos, menu e gerenciar usuários/técnicos</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="toReports">Ir para Relatórios</button>
+      <button class="btn secondary" id="backHome">Voltar ao site</button>
+      <button class="btn ghost" id="logout">Sair</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h3>Editar conteúdo da Home / Index</h3>
+      <div class="muted">Você pode editar os textos principais da página inicial (salva em settings).</div>
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Título principal</label>
+          <input id="siteTitle" class="input" placeholder="Título do site">
+        </div>
+        <div style="flex:1">
+          <label>Subtítulo / descrição</label>
+          <input id="siteSubtitle" class="input" placeholder="Subtítulo">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Texto de destaque (bloco)</label>
+          <textarea id="homeHero" class="input" placeholder="Texto do banner, benefícios, etc."></textarea>
+        </div>
+      </div>
+
+      <div style="text-align:right">
+        <button id="saveSite" class="btn">Salvar conteúdo</button>
+      </div>
+    </div>
+
+    <div class="split" style="margin-top:14px">
+      <div class="left">
+        <div class="card">
+          <h4>Menu Suspenso (navbar)</h4>
+          <div class="muted">Adicione, edite, reordene; salve como JSON na chave <code>menu_items</code>.</div>
+          <div class="form-row">
+            <input id="menuLabel" class="input" placeholder="Rótulo (ex: Produtos)">
+            <input id="menuHref" class="input" placeholder="Link (ex: /produtos.html)">
+            <button id="addMenuItem" class="btn">Adicionar</button>
+          </div>
+          <div id="menuList"></div>
+          <div style="text-align:right;margin-top:8px"><button id="saveMenu" class="btn">Salvar Menu</button></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4>Configurações da nomenclatura do Chamado</h4>
+          <div class="muted">Altere rótulos usados na index/formulário de abertura de chamado (title, label de urgência, etc.).</div>
+          <div class="form-row">
+            <input id="labelTicketTitle" class="input" placeholder="Rótulo para 'Título'">
+            <input id="labelTicketDesc"  class="input" placeholder="Rótulo para 'Descrição'">
+          </div>
+          <div style="text-align:right"><button id="saveNaming" class="btn">Salvar nomenclaturas</button></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4>Usuários (CRUD)</h4>
+          <div class="muted">Criar, editar e excluir usuários. (se o servidor não tiver PUT/DELETE, as ações serão sinalizadas — veja notas abaixo)</div>
+          <div class="form-row">
+            <input id="userName" class="input" placeholder="Nome">
+            <input id="userEmail" class="input" placeholder="E-mail">
+          </div>
+          <div class="form-row">
+            <input id="userPass" type="password" class="input" placeholder="Senha (para novo usuário)">
+            <select id="userRole" class="input">
+              <option value="operator">Operacional</option>
+              <option value="technician">Técnico</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">SuperAdmin</option>
+            </select>
+          </div>
+          <div style="text-align:right"><button id="createUser" class="btn">Criar usuário</button></div>
+
+          <div style="margin-top:12px">
+            <h5>Lista de usuários</h5>
+            <div id="usersTableWrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="right">
+        <div class="card">
+          <h4>Técnicos (CRUD)</h4>
+          <div class="muted">Adicionar, editar (nome) e desativar/excluir (marca inativo).</div>
+          <div class="form-row">
+            <input id="techName" class="input" placeholder="Nome do técnico">
+            <input id="techEmail" class="input" placeholder="Email (opcional)">
+          </div>
+          <div style="text-align:right"><button id="createTech" class="btn">Adicionar técnico</button></div>
+
+          <div style="margin-top:12px">
+            <h5>Lista de técnicos</h5>
+            <div id="techTableWrap"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4>Logs & Status</h4>
+          <div id="adminMessages" class="muted">Pronto</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/admin-edit.js"></script>
+</body>
+</html>
