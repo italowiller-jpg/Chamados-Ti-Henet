@@ -1,18 +1,20 @@
-// server.js (MongoDB + Mongoose)
-const express = require('express');
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const session = require('express-session');
-const path = require('path');
-const cors = require('cors');
-const multer = require('multer');
-const fs = require('fs');
-const helmet = require('helmet');
-const crypto = require('crypto');
-const MongoStore = require('connect-mongo');
+// server.js (MongoDB + Mongoose - ES Modules)
+import express from 'express';
+import bodyParser from 'body-parser';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import session from 'express-session';
+import path from 'path';
+import cors from 'cors';
+import multer from 'multer';
+import fs from 'fs';
+import helmet from 'helmet';
+import crypto from 'crypto';
+import connectMongo from 'connect-mongo';
 
+const MongoStore = connectMongo(session);
 const app = express();
+const __dirname = path.resolve(); // necessário em ES Modules
 
 // ---- CONEXÃO MONGODB ----
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/helpdesk';
@@ -258,7 +260,7 @@ app.post('/api/tickets', upload.array('attachments'), async (req, res) => {
   }
 });
 
-// Comentários e exclusão seguem padrão (similar ao SQLite, mas com mongoose)
+// ---- COMMENTS ----
 app.post('/api/tickets/:id/comments', requireLogin, async (req, res) => {
   const c = await Comment.create({
     ticket_id: req.params.id,
@@ -269,6 +271,7 @@ app.post('/api/tickets/:id/comments', requireLogin, async (req, res) => {
   safeJson(res, { id: c._id });
 });
 
+// ---- DELETE TICKET ----
 app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const attachments = await Attachment.find({ ticket_id: req.params.id });
   for (const a of attachments) {
@@ -283,7 +286,7 @@ app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'),
   safeJson(res, { ok: true });
 });
 
-// Upload genérico
+// ---- UPLOAD GENÉRICO ----
 app.post('/api/upload', requireLogin, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   const dest = path.join(uploadDir, req.file.filename + path.extname(req.file.originalname));
@@ -291,7 +294,7 @@ app.post('/api/upload', requireLogin, upload.single('file'), (req, res) => {
   safeJson(res, { ok: true, url: `/uploads/${path.basename(dest)}` });
 });
 
-// STATIC FILES
+// ---- STATIC FILES ----
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/submit.html', (req,res)=>res.sendFile(path.join(__dirname,'public','submit.html')));
 app.get('/admin.html', (req,res)=>res.sendFile(path.join(__dirname,'public','admin-edit.html')));
