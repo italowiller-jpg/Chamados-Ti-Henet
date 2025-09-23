@@ -2,133 +2,195 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"/>
-  <title>ADM — Edição do Site — He_Net</title>
+  <title>ADM — Gestão de Usuários e Técnicos — He_Net</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <link rel="stylesheet" href="/styles.css"/>
   <style>
-    /* pequenos ajustes locais */
-    .split { display:flex; gap:18px; align-items:flex-start; }
-    .left { flex:1; }
-    .right { width:360px; flex-shrink:0; }
-    @media(max-width:980px){ .split{flex-direction:column} .right{width:100%} }
-    .muted{ color:var(--muted); font-size:13px }
-    .mini { font-size:12px; color:#777 }
-    .action-row { display:flex; gap:8px; align-items:center; }
+    body { background:#f7f8fa; color:#111; font-family:Inter,system-ui,Arial }
+    .header { display:flex; justify-content:space-between; align-items:center; padding:18px 22px; background:#fff; border-bottom:1px solid #eee }
+    .brand { display:flex; gap:12px; align-items:center }
+    .brand .logo img {
+      width:56px;
+      height:56px;
+      border-radius:12px;         /* arredondada */
+      object-fit:cover;
+      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    }
+    .container { max-width:1100px; margin:18px auto; padding:0 14px }
+    .card { background:#fff; border:1px solid #eee; padding:14px; border-radius:8px; box-shadow:0 6px 18px rgba(20,20,20,0.03) }
+    .form-row { display:flex; gap:10px; margin-top:10px }
+    .input { width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; background:#fff }
+    
+    /* ===== Botões ===== */
+    .btn {
+      background:#0b5cff;
+      color:#fff;
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:600;
+    }
+    .btn.small { padding:4px 8px; font-size:12px; color:#fff; }
+    
+    /* Botão fantasma (header) */
+    .btn.ghost {
+      background:#fff;
+      border:1px solid #ddd;
+      color:#0b5cff;
+    }
+    
+    /* Botão secundário (Sair) */
+    .btn.secondary {
+      background:#6c6cff;
+      color:#fff;
+    }
+    
+    /* Botão de perigo */
+    .btn.danger {
+      background:#dc2626;
+      color:#fff;
+    }
+    
+    .muted { color:#666; font-size:13px }
+    .split { display:flex; gap:18px; align-items:flex-start; margin-top:14px }
+    .left { flex:1 }
+    .right { width:380px; flex-shrink:0 }
+    .tabs { display:flex; gap:8px }
+    .tab-btn { padding:8px 12px; border-radius:6px; border:1px solid #eee; background:#fff; cursor:pointer }
+    .tab-btn.active { background:#0b5cff; color:#fff }
+    table.table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px }
+    table.table th, table.table td { padding:8px; border-bottom:1px solid #f2f2f2; text-align:left }
+    table.table td.actions { width:110px }
+    .panel { padding:12px; border-left:1px solid #f0f0f0; min-height:200px; background:#fafafa; border-radius:6px }
+    .small { font-size:13px; color:#666 }
+    .badge { padding:4px 8px; border-radius:999px; font-size:12px; background:#eee }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="brand">
-      <div class="logo"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover"></div>
-      <div class="text"><strong>ADM (Edição do Site)</strong><div class="small">Editar textos, menu e gerenciar usuários/técnicos</div></div>
+      <div class="logo"><img src="/logo.png" alt="logo"></div>
+      <div>
+        <strong>ADM — Gestão</strong>
+        <div class="muted">Gerenciar usuários, permissões e técnicos</div>
+      </div>
     </div>
-    <div class="actions">
-      <button class="btn" id="toReports">Ir para Relatórios</button>
-      <button class="btn secondary" id="backHome">Voltar ao site</button>
-      <button class="btn ghost" id="logout">Sair</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn ghost" id="backHome">Voltar ao site</button>
+      <button class="btn ghost" id="toReports">Ir para Relatórios</button>
+      <button class="btn secondary" id="logout">Sair</button>
     </div>
   </div>
 
   <div class="container">
-    <div class="card">
-      <h3>Editar conteúdo da Home / Index</h3>
-      <div class="muted">Você pode editar os textos principais da página inicial (salva em settings).</div>
-      <div class="form-row">
-        <div style="flex:1">
-          <label>Título principal</label>
-          <input id="siteTitle" class="input" placeholder="Título do site">
-        </div>
-        <div style="flex:1">
-          <label>Subtítulo / descrição</label>
-          <input id="siteSubtitle" class="input" placeholder="Subtítulo">
-        </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0">Painel Administrativo</h3>
+        <div class="muted">Área restrita — somente admins e superadmins</div>
       </div>
-
-      <div class="form-row">
-        <div style="flex:1">
-          <label>Texto de destaque (bloco)</label>
-          <textarea id="homeHero" class="input" placeholder="Texto do banner, benefícios, etc."></textarea>
-        </div>
-      </div>
-
-      <div style="text-align:right">
-        <button id="saveSite" class="btn">Salvar conteúdo</button>
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-users">Usuários</button>
+        <button class="tab-btn" id="tab-techs">Técnicos</button>
       </div>
     </div>
 
-    <div class="split" style="margin-top:14px">
+    <div class="split">
       <div class="left">
-        <div class="card">
-          <h4>Menu Suspenso (navbar)</h4>
-          <div class="muted">Adicione, edite, reordene; salve como JSON na chave <code>menu_items</code>.</div>
-          <div class="form-row">
-            <input id="menuLabel" class="input" placeholder="Rótulo (ex: Produtos)">
-            <input id="menuHref" class="input" placeholder="Link (ex: /produtos.html)">
-            <button id="addMenuItem" class="btn">Adicionar</button>
-          </div>
-          <div id="menuList"></div>
-          <div style="text-align:right;margin-top:8px"><button id="saveMenu" class="btn">Salvar Menu</button></div>
-        </div>
-
-        <div class="card" style="margin-top:12px">
-          <h4>Configurações da nomenclatura do Chamado</h4>
-          <div class="muted">Altere rótulos usados na index/formulário de abertura de chamado (title, label de urgência, etc.).</div>
-          <div class="form-row">
-            <input id="labelTicketTitle" class="input" placeholder="Rótulo para 'Título'">
-            <input id="labelTicketDesc"  class="input" placeholder="Rótulo para 'Descrição'">
-          </div>
-          <div style="text-align:right"><button id="saveNaming" class="btn">Salvar nomenclaturas</button></div>
-        </div>
-
-        <div class="card" style="margin-top:12px">
-          <h4>Usuários (CRUD)</h4>
-          <div class="muted">Criar, editar e excluir usuários. (se o servidor não tiver PUT/DELETE, as ações serão sinalizadas — veja notas abaixo)</div>
-          <div class="form-row">
-            <input id="userName" class="input" placeholder="Nome">
-            <input id="userEmail" class="input" placeholder="E-mail">
+        <!-- USERS -->
+        <section id="pane-users" class="card" style="display:block">
+          <h4 style="margin:0">Usuários</h4>
+          <div class="form-row" style="margin-top:8px">
+            <input id="newUserName" class="input" placeholder="Nome">
+            <input id="newUserEmail" class="input" placeholder="E-mail">
           </div>
           <div class="form-row">
-            <input id="userPass" type="password" class="input" placeholder="Senha (para novo usuário)">
-            <select id="userRole" class="input">
-              <option value="operator">Operacional</option>
+            <input id="newUserPass" type="password" class="input" placeholder="Senha">
+            <select id="newUserRole" class="input">
+              <option value="operator">Operador</option>
               <option value="technician">Técnico</option>
               <option value="admin">Admin</option>
               <option value="superadmin">SuperAdmin</option>
             </select>
           </div>
-          <div style="text-align:right"><button id="createUser" class="btn">Criar usuário</button></div>
-
+          <div style="text-align:right;margin-top:8px">
+            <button id="createUserBtn" class="btn">Criar usuário</button>
+          </div>
           <div style="margin-top:12px">
             <h5>Lista de usuários</h5>
             <div id="usersTableWrap"></div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <aside class="right">
-        <div class="card">
-          <h4>Técnicos (CRUD)</h4>
-          <div class="muted">Adicionar, editar (nome) e desativar/excluir (marca inativo).</div>
-          <div class="form-row">
-            <input id="techName" class="input" placeholder="Nome do técnico">
-            <input id="techEmail" class="input" placeholder="Email (opcional)">
+        <!-- TECHNICIANS -->
+        <section id="pane-techs" class="card" style="display:none">
+          <h4 style="margin:0">Técnicos</h4>
+          <div class="form-row" style="margin-top:8px">
+            <input id="newTechName" class="input" placeholder="Nome do técnico">
+            <input id="newTechEmail" class="input" placeholder="E-mail (opcional)">
           </div>
-          <div style="text-align:right"><button id="createTech" class="btn">Adicionar técnico</button></div>
-
+          <div style="text-align:right;margin-top:8px">
+            <button id="createTechBtn" class="btn">Adicionar técnico</button>
+          </div>
           <div style="margin-top:12px">
             <h5>Lista de técnicos</h5>
             <div id="techTableWrap"></div>
           </div>
-        </div>
+        </section>
+      </div>
 
-        <div class="card" style="margin-top:12px">
-          <h4>Logs & Status</h4>
-          <div id="adminMessages" class="muted">Pronto</div>
+      <div class="right">
+        <div class="panel card" id="editorPanel">
+          <div id="editorEmpty" style="text-align:center;padding:20px">
+            <div class="muted">Selecione um item para editar</div>
+          </div>
+
+          <!-- Editor Usuário -->
+          <div id="editorUser" style="display:none">
+            <h4>Editar Usuário</h4>
+            <label>Nome</label>
+            <input id="editUserName" class="input">
+            <label style="margin-top:8px">E-mail</label>
+            <input id="editUserEmail" class="input" disabled>
+            <label style="margin-top:8px">Role</label>
+            <select id="editUserRole" class="input">
+              <option value="operator">Operador</option>
+              <option value="technician">Técnico</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">SuperAdmin</option>
+            </select>
+            <label style="margin-top:8px">Senha (opcional)</label>
+            <input id="editUserPass" type="password" class="input" placeholder="••••••••">
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+              <button id="deleteUserBtn" class="btn danger small">Excluir</button>
+              <button id="saveUserBtn" class="btn small">Salvar</button>
+            </div>
+          </div>
+
+          <!-- Editor Técnico -->
+          <div id="editorTech" style="display:none">
+            <h4>Editar Técnico</h4>
+            <label>Nome</label>
+            <input id="editTechName" class="input">
+            <label style="margin-top:8px">E-mail</label>
+            <input id="editTechEmail" class="input">
+            <label style="margin-top:8px">Ativo</label>
+            <select id="editTechActive" class="input">
+              <option value="true">Sim</option>
+              <option value="false">Não</option>
+            </select>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+              <button id="deleteTechBtn" class="btn danger small">Excluir</button>
+              <button id="saveTechBtn" class="btn small">Salvar</button>
+            </div>
+          </div>
         </div>
-      </aside>
+      </div>
     </div>
   </div>
 
   <script src="/admin-edit.js"></script>
+  <script src="/admin-check.js"></script>
 </body>
 </html>

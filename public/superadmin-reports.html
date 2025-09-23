@@ -1,116 +1,79 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"/>
-  <title>SuperADM — Relatórios — He_Net</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <link rel="stylesheet" href="/styles.css"/>
-  <!-- Chart.js: carregado primeiro (evita "Chart is not defined") -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SuperADM • Relatórios</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Pequenos ajustes locais para o layout de relatórios */
-    .controls { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
-    .controls .control { min-width:160px; }
-    .chart-grid { display:grid; grid-template-columns: 1fr 420px; gap:12px; align-items:start; margin-top:12px; }
-    @media(max-width:980px){ .chart-grid{grid-template-columns:1fr} .controls{flex-direction:column;align-items:stretch} }
-    .top-row { display:flex; gap:12px; align-items:center; justify-content:space-between; }
-    .muted-small { color:var(--muted); font-size:13px; }
-    .toolbar-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
-    .table { width:100%; border-collapse:collapse; }
-    .table th, .table td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef4ff; }
-    .kpi { display:flex; gap:14px; align-items:center; }
-    .kpi .box { background:#fff; padding:10px 12px; border-radius:10px; box-shadow:var(--shadow); min-width:120px; text-align:center; }
-    .messages { margin-top:12px; color:var(--muted); }
+    body{font-family:Inter,system-ui,Arial;background:#071025;color:#e6eef6;margin:0;padding:24px}
+    .wrap{max-width:1200px;margin:0 auto}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .card{background:linear-gradient(180deg, #07172a, #08142a);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    .filters{display:flex;gap:8px;align-items:center}
+    .filters input, .filters select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .layout{display:grid;grid-template-columns:1fr 420px;gap:12px;margin-top:12px}
+    .table-wrap{overflow:auto;max-height:520px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,0.03);text-align:left}
+    th{color:#94a3b8}
+    .kpi{display:flex;gap:12px}
+    .kpi .k{padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);min-width:160px;text-align:center}
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="brand">
-      <div class="logo"><img src="/logo.png" alt="logo" style="width:100%;height:100%;object-fit:cover"></div>
-      <div class="text"><strong>Relatórios</strong><div class="small">Visão geral — filtros, séries e exportações</div></div>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h2 style="margin:0">Painel de Relatórios — SuperADM</h2>
+        <div style="font-size:13px;color:#94a3b8">Visão ampla de chamados, técnicos e desempenho</div>
+      </div>
+      <div class="filters card">
+        <label style="margin-right:8px">Período</label>
+        <input id="from" type="date" />
+        <input id="to" type="date" />
+        <select id="groupBy"><option value="day">Dia</option><option value="week">Semana</option><option value="month">Mês</option></select>
+        <button id="apply" style="padding:8px 12px;border-radius:8px;border:none;background:#06b6d4;color:#042027;font-weight:600;cursor:pointer">Aplicar</button>
+      </div>
     </div>
-    <div class="actions">
-      <button class="btn" id="backBtn" title="Voltar">Voltar</button>
-      <button class="btn secondary" id="openAdm" title="Abrir painel ADM">Abrir ADM</button>
-    </div>
-  </div>
 
-  <div class="container">
     <div class="card">
-      <div class="top-row">
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-          <div class="control">
-            <label class="small">Técnico</label><br>
-            <select id="filterTech" class="input"><option value="">— Todos —</option></select>
-          </div>
-
-          <div class="control">
-            <label class="small">Status</label><br>
-            <select id="filterStatus" class="input">
-              <option value="">Todos</option><option value="new">Novo</option><option value="in_progress">Em andamento</option>
-              <option value="resolved">Concluído</option><option value="closed">Fechado</option>
-            </select>
-          </div>
-
-          <div class="control">
-            <label class="small">Urgência</label><br>
-            <select id="filterUrgency" class="input">
-              <option value="">Todas</option><option value="low">Baixa</option><option value="medium">Média</option>
-              <option value="high">Alta</option><option value="critical">Crítica</option>
-            </select>
-          </div>
-
-          <div class="control">
-            <label class="small">Período (dias)</label><br>
-            <select id="filterDays" class="input">
-              <option value="7">7</option><option value="14">14</option><option value="30" selected>30</option><option value="90">90</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="toolbar-right">
-          <button id="btnApply" class="btn">Aplicar</button>
-          <button id="exportCSV" class="btn secondary">Exportar CSV</button>
-          <button id="exportJSON" class="btn ghost">Export JSON</button>
-        </div>
-      </div>
-
-      <div class="muted-small" style="margin-top:10px">
-        Use os filtros para reduzir o conjunto. Os gráficos são gerados a partir dos dados existentes em <code>/api/technicians</code> e <code>/api/tickets</code>.
+      <div class="kpi">
+        <div class="k"><div style="font-size:12px;color:#94a3b8">Chamados</div><div id="k-chamados" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div style="font-size:12px;color:#94a3b8">Abertos</div><div id="k-abertos" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div style="font-size:12px;color:#94a3b8">Fechados</div><div id="k-fechados" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div style="font-size:12px;color:#94a3b8">Técnicos</div><div id="k-techs" style="font-size:18px;font-weight:700">--</div></div>
       </div>
     </div>
 
-    <div class="chart-grid">
-      <div class="card">
-        <h4 style="margin:0 0 8px 0">Tendência (série temporal)</h4>
-        <canvas id="chartTimeseries" height="220" aria-label="Série temporal de chamados" role="img"></canvas>
+    <div class="layout">
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <canvas id="chart" height="160"></canvas>
+        </div>
+
+        <div class="card table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Título</th><th>Status</th><th>Técnico</th><th>Data</th><th>Ações</th></tr></thead>
+            <tbody id="reports-body"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="card">
-        <h4 style="margin:0 0 8px 0">Resumo por técnico</h4>
-        <div id="summaryTable" style="max-height:360px; overflow:auto"></div>
-      </div>
+      <div>
+        <div class="card">
+          <h4 style="margin:0 0 8px 0">Resumo por técnico</h4>
+          <div id="tech-summary"></div>
+        </div>
 
-      <div class="card" style="grid-column: 1 / -1;">
-        <h4 style="margin:0 0 8px 0">Distribuições</h4>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
-          <div style="flex:1;min-width:240px">
-            <div class="small" style="margin-bottom:6px">Por status</div>
-            <canvas id="chartStatus" height="140" aria-label="Distribuição por status" role="img"></canvas>
-          </div>
-          <div style="flex:1;min-width:240px">
-            <div class="small" style="margin-bottom:6px">Por urgência</div>
-            <canvas id="chartUrgency" height="140" aria-label="Distribuição por urgência" role="img"></canvas>
-          </div>
+        <div class="card" style="margin-top:12px">
+          <h4 style="margin:0 0 8px 0">Exportar</h4>
+          <button id="export-csv" style="padding:8px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit">Exportar CSV</button>
         </div>
       </div>
     </div>
-
-    <div id="messages" class="messages muted-small">Pronto</div>
   </div>
 
-  <!-- script de relatórios (deve existir em /public/superadmin-reports.js) -->
-  <script src="/superadmin-reports.js" defer></script>
+  <script src="/superadmin-reports.js"></script>
 </body>
 </html>

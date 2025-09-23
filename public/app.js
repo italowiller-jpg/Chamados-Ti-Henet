@@ -1,4 +1,4 @@
-// public/app.js (versão final — cliente)
+// public/app.js - versão ajustada (exibe ticket_number e envia assigned_to como string)
 let currentUser = null;
 
 function escapeHtml(s='') {
@@ -40,7 +40,7 @@ async function apiJSON(url, opts={}) {
   return body;
 }
 
-/* Remember-me: prefill and helper */
+/* Remember-me */
 (function(){
   try {
     const stored = localStorage.getItem('henet_remember');
@@ -97,7 +97,7 @@ function afterLoginSave() {
   } catch(e){}
 }
 
-/* login handlers (both buttons) */
+/* login handlers */
 async function doLoginHandler() {
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
@@ -110,7 +110,6 @@ async function doLoginHandler() {
     currentUser = r.body && r.body.user ? r.body.user : r.body;
     afterLoginSave();
     showDashboard();
-    // ajustar botões de admin/reports
     try {
       const openAdmin = document.getElementById('openAdmin');
       const openReports = document.getElementById('openReports');
@@ -123,23 +122,18 @@ async function doLoginHandler() {
 }
 
 document.getElementById('loginBtn')?.addEventListener('click', async () => {
-  // scroll to login
   const lc = document.getElementById('loginCard');
   if (lc) lc.scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 document.getElementById('loginBtnInline')?.addEventListener('click', doLoginHandler);
-
-// logout
 document.getElementById('logoutBtn')?.addEventListener('click', async () => { try { await fetch('/api/logout', { method:'POST', credentials:'include' }); } catch(e){} location.reload(); });
 
-// nav buttons (corrigido)
 document.getElementById('toSubmit')?.addEventListener('click', ()=> location.href = '/submit');
 document.getElementById('openAdmin')?.addEventListener('click', ()=> location.href = '/admin');
 document.getElementById('openReports')?.addEventListener('click', ()=> location.href = '/superadmin-reports');
 document.getElementById('filterStatus')?.addEventListener('change', loadTickets);
 document.getElementById('refreshBtn')?.addEventListener('click', loadTickets);
 
-// toggle show pwd (if button present)
 document.getElementById('togglePwd')?.addEventListener('click', ()=>{
   const pwd = document.getElementById('password');
   const btn = document.getElementById('togglePwd');
@@ -163,20 +157,14 @@ async function loadTickets() {
       if (t.urgency === 'critical' || t.urgency === 'high') div.classList.add('urgent');
       const lvl = urgencyMap[t.urgency] || (t.urgency ? (t.urgency.charAt(0).toUpperCase()+t.urgency.slice(1)) : 'Média');
       const statusText = statusMap[t.status] || ((t.status||'new').replace('_',' '));
-      const titleSafe = t.title ? escapeHtml(t.title) : (`#${t.id || '—'}`);
+      const displayNumber = (t.ticket_number !== undefined && t.ticket_number !== null) ? ('#' + t.ticket_number) : ('#' + (t.id || '—'));
+      const titleSafe = t.title ? escapeHtml(t.title) : (displayNumber);
       const requesterSafe = t.requester_name ? escapeHtml(t.requester_name) : '';
       const created = safeFormatDate(t.created_at);
       const assignedName = t.assigned_name ? escapeHtml(t.assigned_name) : 'Sem técnico';
-      // ✅ inclui o número do ticket na listagem
       div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div style="max-width:70%">
-          <div style="font-weight:700">#${t.id || '—'} - ${titleSafe}</div>
-          <div class="meta">${requesterSafe}${created? ' • ' + created : ''}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="status-pill ${statusClass(t.status)}">${statusText}</div>
-          <div class="meta" style="margin-top:8px">${lvl}<div style="font-weight:600">${assignedName}</div></div>
-        </div>
+        <div style="max-width:70%"><div style="font-weight:700">${displayNumber} - ${titleSafe}</div><div class="meta">${requesterSafe}${created? ' • ' + created : ''}</div></div>
+        <div style="text-align:right"><div class="status-pill ${statusClass(t.status)}">${statusText}</div><div class="meta" style="margin-top:8px">${lvl}<div style="font-weight:600">${assignedName}</div></div></div>
       </div>`;
       div.addEventListener('click', ()=> showDetail(t.id));
       container.appendChild(div);
@@ -195,17 +183,14 @@ async function showDetail(id) {
     if (!t) { document.getElementById('ticketDetail') && (document.getElementById('ticketDetail').innerHTML = '<div class="muted">Sem dados</div>'); return; }
     const detail = document.getElementById('ticketDetail');
     if (!detail) return;
-    const titleSafe = t.title ? escapeHtml(t.title) : ('#' + (t.id || '—'));
+    const displayNumber = (t.ticket_number !== undefined && t.ticket_number !== null) ? ('#' + t.ticket_number) : ('#' + (t.id || '—'));
+    const titleSafe = t.title ? escapeHtml(t.title) : (displayNumber);
     const requester = t.requester_name ? escapeHtml(t.requester_name) : (t.requester_email ? escapeHtml(t.requester_email) : '');
     const created = safeFormatDate(t.created_at);
 
-    // ✅ número do ticket no detalhe
     let html = `
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <strong>#${t.id || '—'} - ${titleSafe}</strong>
-          <div class="small">${requester}</div>
-        </div>
+        <div><strong>${displayNumber} - ${titleSafe}</strong><div class="small">${requester}</div></div>
         <div class="small">${created}</div>
       </div>
       <div style="margin-top:10px">${escapeHtml(t.description || '')}</div>
@@ -248,7 +233,8 @@ async function showDetail(id) {
       if (techs.length) {
         techs.forEach(tt => {
           const o = document.createElement('option'); o.value = String(tt.id);
-          o.textContent = tt.display_name || tt.user_name || tt.email || ('Téc #' + tt.id);
+          o.textContent = tt.display_name || tt.email || ('Téc #' + tt.id);
+          // IMPORTANT: servidor agora retorna assigned_to como string; compara corretamente
           if (String(t.assigned_to) === String(tt.id)) o.selected = true;
           sel.appendChild(o);
         });
@@ -261,7 +247,7 @@ async function showDetail(id) {
       saveBtn.onclick = async () => {
         const newStatus = document.getElementById('statusSelect')?.value || 'new';
         const assignedVal = document.getElementById('assignSelect')?.value || '';
-        const assigned_to = assignedVal === '' ? null : Number(assignedVal);
+        const assigned_to = assignedVal === '' ? null : assignedVal; // send string ObjectId
         const urgencyVal = document.getElementById('urgencySelect')?.value || 'medium';
         const payload = { status: newStatus, assigned_to: assigned_to, urgency: urgencyVal };
         try {
