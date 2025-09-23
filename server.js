@@ -10,7 +10,7 @@ import multer from 'multer';
 import fs from 'fs';
 import helmet from 'helmet';
 import crypto from 'crypto';
-import MongoStore from 'connect-mongo'; // <- Import direto como classe
+import MongoStore from 'connect-mongo'; // Import direto
 
 const app = express();
 const __dirname = path.resolve(); // necessário em ES Modules
@@ -91,9 +91,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'troque_essa_chave',
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: MONGO_URI }), // <- Correção aqui
+  store: MongoStore.create({ mongoUrl: MONGO_URI }),
   cookie: { maxAge: 24 * 3600 * 1000 }
 }));
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Multer para uploads
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -177,7 +180,11 @@ app.get('/api/settings', requireLogin, requireRoles('admin','superadmin'), async
 app.put('/api/settings', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const updates = req.body || {};
   for (const [k,v] of Object.entries(updates)) {
-    await Setting.findOneAndUpdate({ key: k }, { value: typeof v === 'object' ? JSON.stringify(v) : String(v) }, { upsert: true });
+    await Setting.findOneAndUpdate(
+      { key: k },
+      { value: typeof v === 'object' ? JSON.stringify(v) : String(v) },
+      { upsert: true }
+    );
   }
   safeJson(res, { ok: true });
 });
@@ -285,4 +292,41 @@ app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'),
   safeJson(res, { ok: true });
 });
 
-//
+// ---- GET DETALHE DO TICKET ----
+app.get('/api/tickets/:id', requireLogin, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.id).lean();
+    if (!t) return res.status(404).json({ error: 'not_found' });
+
+    t.attachments = await Attachment.find({ ticket_id: t._id }).lean();
+    t.comments = await Comment.find({ ticket_id: t._id }).sort({ created_at: -1 }).lean();
+
+    if ((!t.assigned_name || t.assigned_name === '') && t.assigned_to) {
+      const tech = await Technician.findById(t.assigned_to);
+      if (tech) t.assigned_name = tech.display_name;
+    }
+
+    safeJson(res, t);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'db_error', message: err.message });
+  }
+});
+
+// ---- ALIASES PARA COMPATIBILIDADE ----
+app.get('/api/chamados', (req, res, next) => {
+  req.url = '/api/tickets' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+  return app._router.handle(req, res, next);
+});
+app.get('/api/chamados/:id', (req, res, next) => {
+  req.url = '/api/tickets/' + req.params.id;
+  return app._router.handle(req, res, next);
+});
+app.get('/api/usuarios', (req, res, next) => {
+  req.url = '/api/users' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+  return app._router.handle(req, res, next);
+});
+
+// ---- START ----
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Servidor rodando em http://localhost:${PORT}`));
