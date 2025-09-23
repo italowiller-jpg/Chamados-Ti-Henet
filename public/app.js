@@ -132,10 +132,10 @@ document.getElementById('loginBtnInline')?.addEventListener('click', doLoginHand
 // logout
 document.getElementById('logoutBtn')?.addEventListener('click', async () => { try { await fetch('/api/logout', { method:'POST', credentials:'include' }); } catch(e){} location.reload(); });
 
-// nav buttons
-document.getElementById('toSubmit')?.addEventListener('click', ()=> location.href = '/submit.html');
-document.getElementById('openAdmin')?.addEventListener('click', ()=> location.href = '/admin.html');
-document.getElementById('openReports')?.addEventListener('click', ()=> location.href = '/stats.html');
+// nav buttons (corrigido)
+document.getElementById('toSubmit')?.addEventListener('click', ()=> location.href = '/submit');
+document.getElementById('openAdmin')?.addEventListener('click', ()=> location.href = '/admin');
+document.getElementById('openReports')?.addEventListener('click', ()=> location.href = '/superadmin-reports');
 document.getElementById('filterStatus')?.addEventListener('change', loadTickets);
 document.getElementById('refreshBtn')?.addEventListener('click', loadTickets);
 

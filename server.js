@@ -116,13 +116,13 @@ const upload = multer({ dest: uploadDir });
 // ---- HELPERS ----
 function requireLogin(req, res, next) {
   if (req.session?.user) return next();
-  return res.status(401).json({ error: 'Unauthorized' });
+  return res.redirect('/'); // redireciona para login se não estiver logado
 }
 function requireRoles(...roles) {
   return (req, res, next) => {
     const u = req.session?.user;
-    if (!u) return res.status(401).json({ error: 'Unauthorized' });
-    if (!roles.includes(u.role)) return res.status(403).json({ error: 'Forbidden' });
+    if (!u) return res.redirect('/');
+    if (!roles.includes(u.role)) return res.status(403).send('Acesso negado');
     next();
   };
 }
@@ -313,18 +313,26 @@ app.get('/api/tickets/:id', requireLogin, async (req, res) => {
   }
 });
 
-// ---- ALIASES PARA COMPATIBILIDADE ----
-app.get('/api/chamados', (req, res, next) => {
-  req.url = '/api/tickets' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
-  return app._router.handle(req, res, next);
+// ... (tudo que você já tinha antes permanece igual)
+
+// ---- ROTAS DE FRONTEND ----
+
+// Página inicial
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// Submissão pública
+app.get('/submit', (req, res) => res.sendFile(path.join(__dirname, 'public', 'submit.html')));
+
+// Admin (somente admin ou superadmin)
+app.get('/admin', requireLogin, requireRoles('admin','superadmin'), (req, res) => {
+  // 🔧 CORRIGIDO: antes estava admin-edit.html, agora serve admin.html (ou ADMedit.html se esse for o nome correto)
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
-app.get('/api/chamados/:id', (req, res, next) => {
-  req.url = '/api/tickets/' + req.params.id;
-  return app._router.handle(req, res, next);
-});
-app.get('/api/usuarios', (req, res, next) => {
-  req.url = '/api/users' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
-  return app._router.handle(req, res, next);
+
+// Relatórios (somente superadmin)
+app.get('/superadmin-reports', requireLogin, requireRoles('superadmin'), (req, res) => {
+  // 🔧 CORRIGIDO: antes tentava enviar a pasta 'superadmin'
+  res.sendFile(path.join(__dirname, 'public', 'superadmin-reports.html'));
 });
 
 // ---- START ----

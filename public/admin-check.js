@@ -26,7 +26,7 @@
     if (openAdminBtn) {
       if (user && user.role && String(user.role).toLowerCase() === 'superadmin') {
         openAdminBtn.style.display = 'inline-block';
-        openAdminBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/admin.html'; };
+        openAdminBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/admin-edit.html'; };
       } else {
         openAdminBtn.style.display = 'none';
         openAdminBtn.onclick = null;
@@ -37,7 +37,7 @@
     if (openReportsBtn) {
       if (user && user.role && (String(user.role).toLowerCase() === 'admin' || String(user.role).toLowerCase() === 'superadmin')) {
         openReportsBtn.style.display = 'inline-block';
-        openReportsBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/stats.html'; };
+        openReportsBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/superadmin-reports.html'; };
       } else {
         openReportsBtn.style.display = 'none';
         openReportsBtn.onclick = null;

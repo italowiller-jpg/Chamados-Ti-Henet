@@ -1,152 +1,116 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Painel de Relatórios — Chamados TI</title>
+  <meta charset="utf-8"/>
+  <title>SuperADM — Relatórios — He_Net</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="/styles.css"/>
+  <!-- Chart.js: carregado primeiro (evita "Chart is not defined") -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-  <!-- CSS: Bootstrap 5 + DataTables + Flatpickr + simple icons -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
   <style>
-    /* Pequenos ajustes de layout */
-    body { padding: 18px; background:#f7f9fc; }
-    .card { box-shadow: 0 1px 6px rgba(20,20,40,0.06); }
-    .filter-row .form-control { min-width: 160px; }
-    #chartArea { height: 320px; }
-    .small-muted { font-size: .85rem; color: #6c757d; }
+    /* Pequenos ajustes locais para o layout de relatórios */
+    .controls { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    .controls .control { min-width:160px; }
+    .chart-grid { display:grid; grid-template-columns: 1fr 420px; gap:12px; align-items:start; margin-top:12px; }
+    @media(max-width:980px){ .chart-grid{grid-template-columns:1fr} .controls{flex-direction:column;align-items:stretch} }
+    .top-row { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    .muted-small { color:var(--muted); font-size:13px; }
+    .toolbar-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+    .table { width:100%; border-collapse:collapse; }
+    .table th, .table td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef4ff; }
+    .kpi { display:flex; gap:14px; align-items:center; }
+    .kpi .box { background:#fff; padding:10px 12px; border-radius:10px; box-shadow:var(--shadow); min-width:120px; text-align:center; }
+    .messages { margin-top:12px; color:var(--muted); }
   </style>
 </head>
 <body>
-  <div class="container-fluid">
-    <div class="d-flex align-items-center mb-3">
-      <h3 class="me-auto">Painel de Relatórios</h3>
-      <div class="ms-3 small-muted">Projetos/Chamados — Henet</div>
+  <div class="header">
+    <div class="brand">
+      <div class="logo"><img src="/logo.png" alt="logo" style="width:100%;height:100%;object-fit:cover"></div>
+      <div class="text"><strong>Relatórios</strong><div class="small">Visão geral — filtros, séries e exportações</div></div>
     </div>
-
-    <!-- Filtros -->
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="row g-2 align-items-end filter-row">
-          <div class="col-auto">
-            <label class="form-label">Período</label>
-            <input id="dateRange" class="form-control" placeholder="Selecione intervalo" />
-          </div>
-          <div class="col-auto">
-            <label class="form-label">Status</label>
-            <select id="filterStatus" class="form-select">
-              <option value="">Todos</option>
-              <option value="open">Aberto</option>
-              <option value="in_progress">Em Andamento</option>
-              <option value="closed">Fechado</option>
-            </select>
-          </div>
-          <div class="col-auto">
-            <label class="form-label">Prioridade</label>
-            <select id="filterPriority" class="form-select">
-              <option value="">Todas</option>
-              <option value="low">Baixa</option>
-              <option value="medium">Média</option>
-              <option value="high">Alta</option>
-            </select>
-          </div>
-          <div class="col-auto">
-            <label class="form-label">Técnico</label>
-            <select id="filterUser" class="form-select">
-              <option value="">Todos</option>
-            </select>
-          </div>
-          <div class="col-auto">
-            <button id="btnApply" class="btn btn-primary">Aplicar</button>
-            <button id="btnReset" class="btn btn-outline-secondary">Limpar</button>
-          </div>
-          <div class="col-auto ms-auto text-end">
-            <button id="btnExportCSV" class="btn btn-sm btn-success">Exportar CSV</button>
-            <button id="btnExportPDF" class="btn btn-sm btn-danger">Exportar PDF</button>
-          </div>
-        </div>
-      </div>
+    <div class="actions">
+      <button class="btn" id="backBtn" title="Voltar">Voltar</button>
+      <button class="btn secondary" id="openAdm" title="Abrir painel ADM">Abrir ADM</button>
     </div>
-
-    <!-- KPIs e Gráfico -->
-    <div class="row g-3 mb-3">
-      <div class="col-md-3">
-        <div class="card p-3">
-          <div class="d-flex align-items-center">
-            <div>
-              <h5 id="kpi_total">0</h5>
-              <div class="small-muted">Total de chamados</div>
-            </div>
-            <div class="ms-auto">
-              <i class="bi bi-list-task fs-3"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-9">
-        <div class="card p-3">
-          <canvas id="chartArea"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tabela de resultados -->
-    <div class="card">
-      <div class="card-body">
-        <table id="reportsTable" class="table table-striped table-hover" style="width:100%">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Título</th>
-              <th>Solicitante</th>
-              <th>Técnico</th>
-              <th>Prioridade</th>
-              <th>Status</th>
-              <th>Data Abertura</th>
-              <th>Tempo (h)</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Modal de detalhes -->
-    <div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 id="modalTitle" class="modal-title">Detalhes do chamado</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body" id="modalBody">
-            <!-- carregado dinamicamente -->
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- Scripts: Bootstrap, DataTables, Chart.js, Flatpickr, SheetJS, jsPDF -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/rangePlugin.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <div class="container">
+    <div class="card">
+      <div class="top-row">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div class="control">
+            <label class="small">Técnico</label><br>
+            <select id="filterTech" class="input"><option value="">— Todos —</option></select>
+          </div>
 
-  <!-- Ícones Bootstrap (opcional) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.4/font/bootstrap-icons.css">
+          <div class="control">
+            <label class="small">Status</label><br>
+            <select id="filterStatus" class="input">
+              <option value="">Todos</option><option value="new">Novo</option><option value="in_progress">Em andamento</option>
+              <option value="resolved">Concluído</option><option value="closed">Fechado</option>
+            </select>
+          </div>
 
-  <!-- Nosso script -->
-  <script type="module" src="superadmin-reports.js"></script>
+          <div class="control">
+            <label class="small">Urgência</label><br>
+            <select id="filterUrgency" class="input">
+              <option value="">Todas</option><option value="low">Baixa</option><option value="medium">Média</option>
+              <option value="high">Alta</option><option value="critical">Crítica</option>
+            </select>
+          </div>
+
+          <div class="control">
+            <label class="small">Período (dias)</label><br>
+            <select id="filterDays" class="input">
+              <option value="7">7</option><option value="14">14</option><option value="30" selected>30</option><option value="90">90</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <button id="btnApply" class="btn">Aplicar</button>
+          <button id="exportCSV" class="btn secondary">Exportar CSV</button>
+          <button id="exportJSON" class="btn ghost">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="muted-small" style="margin-top:10px">
+        Use os filtros para reduzir o conjunto. Os gráficos são gerados a partir dos dados existentes em <code>/api/technicians</code> e <code>/api/tickets</code>.
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card">
+        <h4 style="margin:0 0 8px 0">Tendência (série temporal)</h4>
+        <canvas id="chartTimeseries" height="220" aria-label="Série temporal de chamados" role="img"></canvas>
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 8px 0">Resumo por técnico</h4>
+        <div id="summaryTable" style="max-height:360px; overflow:auto"></div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h4 style="margin:0 0 8px 0">Distribuições</h4>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+          <div style="flex:1;min-width:240px">
+            <div class="small" style="margin-bottom:6px">Por status</div>
+            <canvas id="chartStatus" height="140" aria-label="Distribuição por status" role="img"></canvas>
+          </div>
+          <div style="flex:1;min-width:240px">
+            <div class="small" style="margin-bottom:6px">Por urgência</div>
+            <canvas id="chartUrgency" height="140" aria-label="Distribuição por urgência" role="img"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="messages" class="messages muted-small">Pronto</div>
+  </div>
+
+  <!-- script de relatórios (deve existir em /public/superadmin-reports.js) -->
+  <script src="/superadmin-reports.js" defer></script>
 </body>
 </html>

@@ -1,303 +1,276 @@
-// reports.js
-// Versão modular (ESM). Ajuste endpoints conforme sua API.
-import { saveAs } from "https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js";
+// public/superadmin-reports.js
+// Relatórios SuperAdmin — versão robusta e compatível com server.js fornecido
+// Requisitos: Chart.js já carregado no HTML (por ex. <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>)
 
-const API_BASE = '/api';
-const REPORTS_ENDPOINT = `${API_BASE}/chamados`;   // em vez de /reports
-const USERS_ENDPOINT = `${API_BASE}/usuarios`;     // em vez de /users
+function el(id){ return document.getElementById(id); }
+function show(msg, err=false){ const m = el('messages'); if(!m) return; m.style.color = err? '#c00':'#666'; m.innerText = msg; }
+function escapeHtml(s=''){ return String(s).replace(/[&<>"']/g, (m)=>( {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] )); }
 
-
-// Util: cabecalhos de auth (se usar token, defina aqui)
-function authHeaders() {
-  // Se você usa token localStorage:
-  // const token = localStorage.getItem('token');
-  // return token ? { 'Authorization': 'Bearer ' + token } : {};
-  return { 'Content-Type': 'application/json' }; // cookies de sessão não precisam
-}
-
-// Estado
-let table = null;
-let chart = null;
-let currentData = [];
-
-// Inicialização
-document.addEventListener('DOMContentLoaded', () => {
-  initDateRange();
-  initTable();
-  loadUsers();
-  attachEventHandlers();
-  fetchAndRender(); // renderiza com filtros default
-});
-
-function initDateRange() {
-  flatpickr("#dateRange", {
-    mode: "range",
-    dateFormat: "Y-m-d",
-    locale: "pt",
-    onClose: function(selectedDates, dateStr) { /* opcional */ }
-  });
-}
-
-function attachEventHandlers() {
-  document.getElementById('btnApply').addEventListener('click', fetchAndRender);
-  document.getElementById('btnReset').addEventListener('click', () => {
-    document.getElementById('dateRange').value = '';
-    document.getElementById('filterStatus').value = '';
-    document.getElementById('filterPriority').value = '';
-    document.getElementById('filterUser').value = '';
-    fetchAndRender();
-  });
-  document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
-  document.getElementById('btnExportPDF').addEventListener('click', exportPDF);
-}
-
-async function loadUsers() {
+// api helper que retorna json ou lança erro com mensagem
+async function api(path, opts={}) {
+  const merged = { credentials:'include', ...opts };
+  let res;
   try {
-    const res = await fetch(`${USERS_ENDPOINT}`, { headers: authHeaders() });
-    if(!res.ok) throw new Error('Erro ao carregar técnicos');
-    const users = await res.json();
-    const sel = document.getElementById('filterUser');
-    users.forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u.id;
-      opt.textContent = `${u.name} (${u.username || u.email || ''})`;
-      sel.appendChild(opt);
+    res = await fetch(path, merged);
+  } catch (err) {
+    console.error('Network error', err);
+    throw new Error('Network error');
+  }
+  // tratar 401/403 com mensagem clara (frontend precisa saber)
+  if (res.status === 401 || res.status === 403) {
+    const txt = await res.text().catch(()=>null);
+    const normalized = txt && txt.length < 500 ? txt : null;
+    throw new Error(normalized || `Unauthorized (${res.status})`);
+  }
+  const txt = await res.text();
+  let body = null;
+  try { body = txt ? JSON.parse(txt) : null; } catch(e) { body = txt; }
+  if (!res.ok) {
+    const msg = (body && (body.error || body.message)) || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return body;
+}
+
+let charts = {};
+function destroyChart(id){
+  try { if (charts[id]) { charts[id].destroy(); charts[id] = null; } } catch(e){ console.warn('destroyChart', e); }
+}
+function createOrUpdateChart(id, cfg) {
+  const ctx = el(id);
+  if (!ctx) return;
+  // destroy existing
+  destroyChart(id);
+  charts[id] = new Chart(ctx, cfg);
+}
+
+/* ---------- UI rendering ---------- */
+function renderSummary(rows){
+  const wrap = el('summaryTable'); if(!wrap) return;
+  let html = '<table class="table"><thead><tr><th>Técnico</th><th>Total</th><th>Concluídos</th><th>Em andamento</th><th>Tempo médio (h)</th></tr></thead><tbody>';
+  (rows||[]).forEach(r=>{
+    html += `<tr>
+      <td>${escapeHtml(r.display_name||('Téc '+r.tech_id))}</td>
+      <td>${r.total_tickets||0}</td>
+      <td>${r.resolved_count||0}</td>
+      <td>${r.in_progress_count||0}</td>
+      <td>${(r.avg_resolution_hours !== null && r.avg_resolution_hours !== undefined) ? Number(r.avg_resolution_hours).toFixed(1) : '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+/* ---------- Load helpers ---------- */
+async function loadTechSelect(){
+  try {
+    const techs = await api('/api/technicians'); // public endpoint in server.js
+    const sel = el('filterTech');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Todos —</option>';
+    (techs||[]).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.display_name || t.user_name || t.email || ('Téc '+t.id);
+      sel.appendChild(o);
     });
-  } catch (err) {
-    console.warn('loadUsers:', err);
+  } catch(err){
+    console.warn('loadTechSelect error', err);
+    show('Não foi possível carregar técnicos. (ver console)', true);
   }
 }
 
-function buildQueryFromFilters() {
-  const dateRange = document.getElementById('dateRange').value;
-  const [start, end] = dateRange ? dateRange.split(' to ').map(s => s.trim()) : [null, null];
-  const status = document.getElementById('filterStatus').value;
-  const priority = document.getElementById('filterPriority').value;
-  const user = document.getElementById('filterUser').value;
-
-  const params = new URLSearchParams();
-  if (start) params.append('start_date', start);
-  if (end) params.append('end_date', end);
-  if (status) params.append('status', status);
-  if (priority) params.append('priority', priority);
-  if (user) params.append('user_id', user);
-
-  // paginação / limit pode ser adicionado
-  params.append('limit', '1000'); // ajustar; servidor deve suportar
-  return params.toString();
-}
-
-async function fetchAndRender() {
-  const q = buildQueryFromFilters();
-  const url = `${REPORTS_ENDPOINT}?${q}`;
+async function loadSummaryAndDistribution(){
+  show('Carregando resumo...');
   try {
-    const res = await fetch(url, { headers: authHeaders() });
-    if (!res.ok) throw new Error(`Erro ${res.status}`);
-    const json = await res.json();
-    // Estrutura esperada: { data: [ {id, title, requester, assignee, priority, status, opened_at, hours_spent, ...}], meta: {...} }
-    const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
-    currentData = data;
-    renderKpis(data);
-    renderChart(data);
-    populateTable(data);
-  } catch (err) {
-    console.error('fetchAndRender', err);
-    alert('Falha ao carregar relatórios. Veja console para detalhes.');
+    const summary = await api('/api/techs/summary');
+    renderSummary(summary || []);
+  } catch(err){
+    console.error('loadSummaryAndDistribution error', err);
+    show('Erro ao carregar resumo: ' + err.message, true);
+    return;
+  }
+
+  // carregar distribuições via /api/stats
+  try{
+    const stats = await api('/api/stats');
+    const byStatus = (stats.byStatus || []).map(s => ({ label: s.status, cnt: s.cnt }));
+    const statusLabels = byStatus.map(s => (s.label === 'new' ? 'Novo' : (s.label === 'in_progress' ? 'Em andamento' : (s.label === 'resolved' ? 'Concluído' : s.label))));
+    const statusData = byStatus.map(s => s.cnt || 0);
+
+    createOrUpdateChart('chartStatus', {
+      type: 'doughnut',
+      data: { labels: statusLabels, datasets: [{ label: 'Status', data: statusData }] },
+      options: { plugins:{legend:{position:'bottom'}} }
+    });
+
+    const byUrg = (stats.byUrgency || []).map(u => ({ label: u.urgency, cnt: u.cnt }));
+    const urgLabels = byUrg.map(u => (u.label === 'low' ? 'Baixa' : (u.label === 'medium' ? 'Média' : (u.label === 'high' ? 'Alta' : (u.label === 'critical' ? 'Crítica' : u.label)))));
+    const urgData = byUrg.map(u => u.cnt || 0);
+
+    createOrUpdateChart('chartUrgency', {
+      type: 'pie',
+      data: { labels: urgLabels, datasets: [{ label:'Urgência', data: urgData }] },
+      options: { plugins:{legend:{position:'bottom'}} }
+    });
+
+    show('');
+  } catch(err){
+    console.error('load distributions error', err);
+    show('Resumo carregado, mas falha nas distribuições: ' + err.message, true);
   }
 }
 
-function renderKpis(data) {
-  document.getElementById('kpi_total').textContent = data.length;
-}
-
-function renderChart(data) {
-  // Exemplo: chamdos por dia
-  const countsByDate = {};
-  data.forEach(r => {
-    const d = r.opened_at ? r.opened_at.slice(0,10) : 'Sem data';
-    countsByDate[d] = (countsByDate[d]||0) + 1;
-  });
-  const labels = Object.keys(countsByDate).sort();
-  const values = labels.map(l => countsByDate[l]);
-
-  const ctx = document.getElementById('chartArea').getContext('2d');
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Chamados abertos',
-        data: values,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13,110,253,0.15)',
-        fill: true,
-        tension: 0.2,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: { mode: 'index', intersect: false }
-      },
-      scales: {
-        x: { title: { display: false } },
-        y: { beginAtZero: true }
-      }
+async function loadTimeSeries(techId, days){
+  show('Carregando série temporal...');
+  try {
+    let labels = [], created = [], resolved = [];
+    if (techId) {
+      const r = await api(`/api/techs/${encodeURIComponent(techId)}/timeseries?days=${Number(days||30)}`);
+      labels = (r.created||[]).map(x => x.day);
+      created = (r.created||[]).map(x => x.cnt || 0);
+      resolved = (r.resolved||[]).map(x => x.cnt || 0);
+    } else {
+      // fallback cliente: buscar tickets e agregar por dia (criados)
+      const all = await api('/api/tickets'); // for admin, returns all
+      const mapCreate = {};
+      (all||[]).forEach(t => {
+        const day = (t.created_at || '').slice(0,10) || null;
+        if (!day) return;
+        mapCreate[day] = (mapCreate[day] || 0) + 1;
+      });
+      labels = Object.keys(mapCreate).sort();
+      created = labels.map(l => mapCreate[l] || 0);
+      // resolved: best-effort by checking status === resolved and updated_at date
+      const mapResolved = {};
+      (all||[]).forEach(t => {
+        if (t.status === 'resolved' && t.updated_at) {
+          const day = (t.updated_at || '').slice(0,10);
+          mapResolved[day] = (mapResolved[day] || 0) + 1;
+        }
+      });
+      resolved = labels.map(l => mapResolved[l] || 0);
     }
-  });
-}
 
-function initTable() {
-  // Usando DataTables (jQuery dependência já carregada via CDN DataTables)
-  // Note: se não quiser jQuery, pode implementar tabela manual.
-  $(document).ready(function() {
-    table = $('#reportsTable').DataTable({
-      columns: [
-        { data: 'id' },
-        { data: 'title' },
-        { data: 'requester' },
-        { data: 'assignee' },
-        { data: 'priority' },
-        { data: 'status' },
-        { data: 'opened_at' },
-        { data: 'hours_spent' },
-        { data: null, orderable: false }
-      ],
-      order: [[6, 'desc']],
-      pageLength: 15,
-      language: {
-        url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/Portuguese-Brasil.json'
+    createOrUpdateChart('chartTimeseries', {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Criados', data: created, tension: 0.2, fill:false },
+          { label: 'Resolvidos', data: resolved, tension: 0.2, fill:false }
+        ]
       },
-      createdRow: function(row, data) {
-        // ações
-        const actionsCell = $('td', row).eq(8);
-        const btn = $('<button class="btn btn-sm btn-primary">Ver</button>');
-        btn.on('click', () => openDetailModal(data.id));
-        actionsCell.empty().append(btn);
-      }
+      options: { plugins:{legend:{position:'bottom'}}, interaction:{mode:'index',intersect:false}, stacked:false }
     });
-  });
-}
 
-function populateTable(data) {
-  if (!table) return setTimeout(() => populateTable(data), 100); // aguarda DataTables init
-  table.clear();
-  // formata algumas colunas
-  const rows = data.map(r => ({
-    id: r.id,
-    title: r.title || r.subject || '(sem título)',
-    requester: r.requester_name || r.requester || r.client || '-',
-    assignee: r.assignee_name || r.assignee || '-',
-    priority: formatPriority(r.priority),
-    status: formatStatus(r.status),
-    opened_at: r.opened_at ? new Date(r.opened_at).toLocaleString('pt-BR') : '-',
-    hours_spent: r.hours_spent ?? r.time_spent ?? '-',
-    raw: r
-  }));
-  table.rows.add(rows).draw();
-}
-
-function formatPriority(p) {
-  if(!p) return '-';
-  const map = { low: 'Baixa', medium: 'Média', high: 'Alta' };
-  return map[p] || String(p);
-}
-function formatStatus(s) {
-  if(!s) return '-';
-  const map = { open: '<span class="badge bg-warning text-dark">Aberto</span>', in_progress: '<span class="badge bg-info text-dark">Em Andamento</span>', closed: '<span class="badge bg-success">Fechado</span>' };
-  return map[s] || s;
-}
-
-async function openDetailModal(id) {
-  // Busca detalhe do chamado
-  try {
-    const res = await fetch(`${REPORTS_ENDPOINT}/${id}`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Erro ao buscar detalhe');
-    const r = await res.json();
-    showModalDetail(r);
-  } catch (err) {
-    console.error('openDetailModal', err);
-    alert('Falha ao carregar detalhe do chamado');
+    show('');
+  } catch(err){
+    console.error('loadTimeSeries error', err);
+    show('Erro ao carregar série temporal: ' + err.message, true);
   }
 }
 
-function showModalDetail(data) {
-  const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
-  document.getElementById('modalTitle').textContent = `#${data.id} — ${data.title || data.subject || 'Detalhes'}`;
-  const body = document.getElementById('modalBody');
-  body.innerHTML = `
-    <dl class="row">
-      <dt class="col-sm-3">Solicitante</dt><dd class="col-sm-9">${data.requester_name || data.requester || '-'}</dd>
-      <dt class="col-sm-3">Técnico</dt><dd class="col-sm-9">${data.assignee_name || data.assignee || '-'}</dd>
-      <dt class="col-sm-3">Prioridade</dt><dd class="col-sm-9">${formatPriority(data.priority)}</dd>
-      <dt class="col-sm-3">Status</dt><dd class="col-sm-9">${data.status}</dd>
-      <dt class="col-sm-3">Abertura</dt><dd class="col-sm-9">${data.opened_at ? new Date(data.opened_at).toLocaleString('pt-BR') : '-'}</dd>
-      <dt class="col-sm-3">Descrição</dt><dd class="col-sm-9"><div>${(data.description || '').replace(/\n/g,'<br>')}</div></dd>
-    </dl>
-    <hr />
-    <h6>Atividades / Logs</h6>
-    <div>${renderActivities(data.activities || data.logs || [])}</div>
-  `;
-  modal.show();
+/* ---------- filters & exports ---------- */
+function collectFilters(){
+  return {
+    tech: el('filterTech')?.value || '',
+    status: el('filterStatus')?.value || '',
+    urgency: el('filterUrgency')?.value || '',
+    days: Number(el('filterDays')?.value || 30)
+  };
 }
 
-function renderActivities(acts) {
-  if (!acts.length) return '<div class="small-muted">Nenhuma atividade registrada</div>';
-  return '<ul class="list-group">' + acts.map(a => `<li class="list-group-item"><small class="text-muted">${new Date(a.date || a.created_at).toLocaleString('pt-BR')}</small><div>${a.note || a.text || a.description}</div></li>`).join('') + '</ul>';
+async function fetchFilteredTickets(){
+  const f = collectFilters();
+  try {
+    // server /api/tickets supports status & urgency filters
+    const params = [];
+    if (f.status) params.push('status=' + encodeURIComponent(f.status));
+    if (f.urgency) params.push('urgency=' + encodeURIComponent(f.urgency));
+    const url = '/api/tickets' + (params.length ? ('?' + params.join('&')) : '');
+    const all = await api(url);
+    const filtered = (all||[]).filter(t => {
+      if (f.tech && String(t.assigned_to) !== String(f.tech)) return false;
+      if (f.days) {
+        const cutoff = new Date(Date.now() - f.days * 24*3600*1000);
+        const created = t.created_at ? new Date(t.created_at) : null;
+        if (!created) return false;
+        if (created < cutoff) return false;
+      }
+      return true;
+    });
+    return filtered;
+  } catch(err){
+    console.error('fetchFilteredTickets error', err);
+    throw err;
+  }
 }
 
-// Export CSV usando SheetJS
-function exportCSV() {
-  if (!currentData.length) return alert('Sem dados para exportar');
-  const ws_data = [
-    ['ID','Título','Solicitante','Técnico','Prioridade','Status','Abertura','Horas']
-  ];
-  currentData.forEach(r => {
-    ws_data.push([
-      r.id,
-      r.title || r.subject,
-      r.requester_name || r.requester,
-      r.assignee_name || r.assignee,
-      r.priority,
-      r.status,
-      r.opened_at,
-      r.hours_spent ?? ''
-    ]);
+function rowsToCSV(rows){
+  if (!rows || !rows.length) return '';
+  const keys = Object.keys(rows[0]);
+  const esc = v => { if (v===null||v===undefined) return ''; const s = String(v).replace(/"/g,'""'); return `"${s}"`; };
+  let csv = keys.join(',') + '\n';
+  csv += rows.map(r => keys.map(k => esc(r[k])).join(',')).join('\n');
+  return csv;
+}
+
+async function exportCSV(){
+  show('Preparando exportação...');
+  try {
+    const rows = await fetchFilteredTickets();
+    const mapped = rows.map(r => ({
+      id: r.id, title: r.title, requester: r.requester_name, assigned: r.assigned_name || r.assigned_to, status: r.status, urgency: r.urgency, created_at: r.created_at
+    }));
+    const csv = rowsToCSV(mapped);
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'tickets_export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    show('Exportado CSV');
+  } catch(err){
+    console.error('exportCSV error', err);
+    show('Erro exportando CSV: ' + err.message, true);
+  }
+}
+
+async function exportJSON(){
+  show('Preparando exportação JSON...');
+  try {
+    const rows = await fetchFilteredTickets();
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'tickets_export.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    show('Exportado JSON');
+  } catch(err){
+    console.error('exportJSON error', err);
+    show('Erro exportando JSON: ' + err.message, true);
+  }
+}
+
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded', async () => {
+  el('backBtn')?.addEventListener('click', ()=> location.href = '/');
+  el('openAdm')?.addEventListener('click', ()=> location.href = '/admin-edit.html');
+  el('btnApply')?.addEventListener('click', async ()=> {
+    const f = collectFilters();
+    await loadTimeSeries(f.tech, f.days);
+    await loadSummaryAndDistribution();
   });
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  XLSX.utils.book_append_sheet(wb, ws, 'Relatórios');
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(new Blob([wbout],{type:"application/octet-stream"}), `relatorios_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
+  el('exportCSV')?.addEventListener('click', exportCSV);
+  el('exportJSON')?.addEventListener('click', exportJSON);
 
-// Export PDF básico via jsPDF (simplificado)
-async function exportPDF() {
-  if (!currentData.length) return alert('Sem dados para exportar');
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape' });
-  doc.setFontSize(12);
-  doc.text('Relatório de Chamados', 14, 16);
-  const headers = [['ID','Título','Solicitante','Técnico','Prioridade','Status','Abertura']];
-  const rows = currentData.map(r => [
-    r.id,
-    (r.title || r.subject || '').substring(0,40),
-    r.requester_name || r.requester || '',
-    r.assignee_name || r.assignee || '',
-    r.priority || '',
-    r.status || '',
-    r.opened_at ? new Date(r.opened_at).toLocaleString('pt-BR') : ''
-  ]);
-  doc.autoTable({
-    head: headers,
-    body: rows,
-    startY: 22,
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [13,110,253] }
-  });
-  doc.save(`relatorio_${new Date().toISOString().slice(0,10)}.pdf`);
-}
-
-// Nota: jsPDF autoTable plugin normalmente necessário; se não existir, exportPDF pode usar uma alternativa (ex: imprimir a tabela html)
+  // initial load
+  await loadTechSelect();
+  // try to load reports (if not allowed, show message)
+  try {
+    await loadSummaryAndDistribution();
+  } catch(e){
+    console.warn('initial summary load failed', e);
+  }
+  try {
+    await loadTimeSeries(el('filterTech')?.value || '', Number(el('filterDays')?.value || 30));
+  } catch(e){
+    console.warn('initial timeseries load failed', e);
+  }
+});

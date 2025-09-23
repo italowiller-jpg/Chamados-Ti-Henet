@@ -5,9 +5,7 @@
   <title>He_Net - Painel</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <link rel="stylesheet" href="/styles.css"/>
-  <!-- ícones rápidos (opcional) -->
   <style>
-    /* Pequena correção local para garantir boa renderização do SVG eye */
     .pwd-toggle { cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
     .ticket-item { 
       padding:8px; 
@@ -84,7 +82,7 @@
         </div>
       </section>
 
-      <!-- DASHBOARD (escondido até login) -->
+      <!-- DASHBOARD -->
       <section id="dashboard" style="display:none;margin-top:20px">
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -101,9 +99,7 @@
             </div>
           </div>
 
-          <!-- LISTAGEM DE TICKETS -->
           <div id="ticketsList" style="margin-top:12px">
-            <!-- Exemplo inicial (será substituído pelo JS) -->
             <div class="ticket-item" data-id="12345">
               <strong>#12345</strong> - Problema na conexão (Novo)
             </div>
@@ -113,7 +109,6 @@
           </div>
         </div>
 
-        <!-- DETALHES DO CHAMADO -->
         <div class="card" style="margin-top:12px">
           <h4>Detalhes do chamado</h4>
           <div id="ticketDetail" class="ticket-detail">
@@ -130,10 +125,8 @@
   <script src="/app.js"></script>
   <script src="/admin-check.js"></script>
 
-  <!-- Script de UI (lembrar/mostrar senha + demo tickets) -->
   <script>
     (function(){
-      // Pré-preenchimento do email se "lembrar" estiver ativo
       const stored = localStorage.getItem('henet_remember');
       if (stored) {
         try {
@@ -143,7 +136,6 @@
         } catch(e){}
       }
 
-      // toggle show/hide password
       const pwd = document.getElementById('password');
       const btn = document.getElementById('togglePwd');
       btn?.addEventListener('click', ()=> {
@@ -152,7 +144,6 @@
         else { pwd.type = 'password'; btn.textContent = '👁️'; }
       });
 
-      // login handler
       const rememberCheckbox = document.getElementById('rememberMe');
       async function handleLogin() {
         const email = document.getElementById('email').value.trim();
@@ -175,7 +166,16 @@
         document.getElementById('loginCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
 
-      // DEMO: quando clica em ticket mostra detalhes
+      // Botão Admin
+      document.getElementById('openAdmin')?.addEventListener('click', ()=>{
+        window.location.href = '/admin';
+      });
+
+      // Botão Relatórios
+      document.getElementById('openReports')?.addEventListener('click', ()=>{
+        window.location.href = '/reports';
+      });
+
       document.querySelectorAll('.ticket-item').forEach(item=>{
         item.addEventListener('click', ()=>{
           const id = item.getAttribute('data-id');

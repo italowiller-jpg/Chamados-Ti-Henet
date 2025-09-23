@@ -305,7 +305,7 @@ async function init(){
   el('saveNaming')?.addEventListener('click', saveNaming);
   el('backHome')?.addEventListener('click', ()=> location.href = '/');
   el('logout')?.addEventListener('click', ()=> fetch('/api/logout',{method:'POST',credentials:'include'}).then(()=>location.href='/'));
-  el('toReports')?.addEventListener('click', ()=> location.href = '/stats.html');
+  el('toReports')?.addEventListener('click', ()=> location.href = '/superadmin-reports.html');
 
   await loadSettings();
   await loadUsers();
