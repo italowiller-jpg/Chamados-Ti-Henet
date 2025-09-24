@@ -1,19 +1,19 @@
-const mongoose = require('./db');
+// models/Ticket.js
+import mongoose from 'mongoose';
+import AutoIncrementFactory from 'mongoose-sequence';
+
+const AutoIncrement = AutoIncrementFactory(mongoose);
 
 const ticketSchema = new mongoose.Schema({
-  title: String,
-  description: String,
-  requester_name: String,
-  requester_email: String,
-  status: { type: String, default: 'new' },
-  urgency: { type: String, default: 'medium' },
-  assigned_to: String,
-  created_at: { type: Date, default: Date.now },
-  comments: [{
-    user_name: String,
-    text: String,
-    created_at: { type: Date, default: Date.now }
-  }]
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  status: { type: String, default: 'Aberto' },
+  createdAt: { type: Date, default: Date.now },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
 
-module.exports = mongoose.model('Ticket', ticketSchema);
+// Adiciona o campo autoIncrement "ticketNumber"
+ticketSchema.plugin(AutoIncrement, { inc_field: 'ticketNumber' });
+
+const Ticket = mongoose.model('Ticket', ticketSchema);
+export default Ticket;
