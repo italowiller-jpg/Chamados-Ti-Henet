@@ -3,6 +3,8 @@
 import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
 import fetch from 'node-fetch'; // se node <18, senão pode usar global fetch
+import mongoose from "mongoose";
+
 
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN || '');
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID;
