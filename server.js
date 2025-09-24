@@ -15,6 +15,7 @@ import fs from 'fs';
 import helmet from 'helmet';
 import crypto from 'crypto';
 import MongoStore from 'connect-mongo';
+import './slack-integration.js';
 
 const app = express();
 const __dirname = path.resolve();
