@@ -1,5 +1,7 @@
-// public/app.js - versão final (operador vê somente status em texto)
+// public/app.js - versão final com SSE client (operador vê somente status em texto)
 let currentUser = null;
+let currentOpenTicketId = null; // id do detalhe aberto (se houver)
+let sseConnection = null;
 
 function escapeHtml(s = '') {
   return String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -42,6 +44,84 @@ async function apiJSON(url, opts = {}) {
     throw new Error(msg);
   }
   return body;
+}
+
+/* SSE client */
+function startSSE() {
+  try {
+    if (typeof EventSource === 'undefined') return;
+    if (sseConnection) return;
+    sseConnection = new EventSource('/events');
+
+    sseConnection.addEventListener('connected', (ev) => {
+      console.log('SSE connected', ev.data);
+    });
+
+    sseConnection.addEventListener('ticket_created', (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        console.log('SSE ticket_created', d);
+        // atualizar lista
+        loadTickets().catch(()=>{});
+      } catch (e) { console.warn('sse ticket_created parse', e); }
+    });
+
+    sseConnection.addEventListener('ticket_updated', (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        console.log('SSE ticket_updated', d);
+        loadTickets().catch(()=>{});
+        if (currentOpenTicketId && String(d.ticketId) === String(currentOpenTicketId)) {
+          showDetail(currentOpenTicketId).catch(()=>{});
+        }
+      } catch (e) { console.warn('sse ticket_updated parse', e); }
+    });
+
+    sseConnection.addEventListener('comment_created', (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        console.log('SSE comment_created', d);
+        if (currentOpenTicketId && String(d.ticketId) === String(currentOpenTicketId)) {
+          showDetail(currentOpenTicketId).catch(()=>{});
+        } else {
+          // optionally update list preview
+          loadTickets().catch(()=>{});
+        }
+      } catch (e) { console.warn('sse comment_created parse', e); }
+    });
+
+    sseConnection.addEventListener('ticket_deleted', (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        console.log('SSE ticket_deleted', d);
+        loadTickets().catch(()=>{});
+        if (currentOpenTicketId && String(d.ticketId) === String(currentOpenTicketId)) {
+          const detail = document.getElementById('ticketDetail');
+          if (detail) detail.innerHTML = '<div class="small">Chamado excluído.</div>';
+        }
+      } catch (e) { console.warn('sse ticket_deleted parse', e); }
+    });
+
+    sseConnection.onerror = (err) => {
+      console.warn('SSE error', err);
+      // EventSource will auto-reconnect by default; if closed, reset variable to allow re-open later
+      if (sseConnection && sseConnection.readyState === EventSource.CLOSED) {
+        sseConnection.close();
+        sseConnection = null;
+        // try reconnect after 3s
+        setTimeout(startSSE, 3000);
+      }
+    };
+  } catch (e) { console.warn('startSSE err', e); }
+}
+
+function stopSSE() {
+  try {
+    if (sseConnection) {
+      sseConnection.close();
+      sseConnection = null;
+    }
+  } catch (e) {}
 }
 
 /* renderDetailFromItem — usado quando abre o painel a partir da lista (respeita operator) */
@@ -137,7 +217,7 @@ async function checkMe() {
     const meRes = await fetch('/api/me', { credentials: 'include' });
     if (meRes.status === 401) { showLogin(); return; }
     const data = await meRes.json();
-    if (data) { currentUser = data; showDashboard(); } else showLogin();
+    if (data) { currentUser = data; showDashboard(); startSSE(); } else showLogin();
     try {
       const openAdmin = document.getElementById('openAdmin');
       const openReports = document.getElementById('openReports');
@@ -186,6 +266,7 @@ async function doLoginHandler() {
     currentUser = r.body && r.body.user ? r.body.user : r.body;
     afterLoginSave();
     showDashboard();
+    startSSE();
     try {
       const openAdmin = document.getElementById('openAdmin');
       const openReports = document.getElementById('openReports');
@@ -232,6 +313,7 @@ async function loadTickets() {
     tickets.forEach(t => {
       const div = document.createElement('div');
       div.className = 'ticket';
+      div.setAttribute('data-id', t.id || t._id || '');
       if (t.urgency === 'critical' || t.urgency === 'high') div.classList.add('urgent');
       const lvl = urgencyMap[t.urgency] || (t.urgency ? (t.urgency.charAt(0).toUpperCase() + t.urgency.slice(1)) : 'Média');
       const statusText = statusMap[t.status] || ((t.status || 'new').replace('_', ' '));
@@ -258,6 +340,7 @@ async function loadTickets() {
 /* showDetail — agora respeita operador: operador vê apenas texto, sem selects/botões; comentários continuam */
 async function showDetail(id) {
   try {
+    currentOpenTicketId = id;
     const t = await apiJSON('/api/tickets/' + id);
     if (!t) { document.getElementById('ticketDetail') && (document.getElementById('ticketDetail').innerHTML = '<div class="muted">Sem dados</div>'); return; }
     const detail = document.getElementById('ticketDetail');
@@ -410,6 +493,7 @@ async function showDetail(id) {
   } catch (err) {
     console.error('showDetail error', err);
     if (String(err.message) === 'noauth') return;
+    currentOpenTicketId = null;
     const detail = document.getElementById('ticketDetail');
     if (detail) detail.innerHTML = '<div class="muted">Erro ao carregar detalhe do chamado.</div>';
   }

@@ -1,9 +1,4 @@
-// server.js - Versão final com correções:
-// - PUT /api/users/:id -> faz hash da senha quando enviada
-// - PUT /api/tickets/:id -> permite que 'technician' apenas se auto-atribua
-// - POST /api/tickets -> retorna ticket_number + protocol
-// - GET /api/technicians/me -> retorna registro technician vinculado ao user logado
-
+// server.js - Versão final com SSE (Server-Sent Events) integrado
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
@@ -139,6 +134,36 @@ async function getNextSequence(name){
   const doc = await Counter.findByIdAndUpdate(name, { $inc: { seq: 1 } }, { new: true, upsert: true });
   return doc.seq;
 }
+
+// --- SSE: Server-Sent Events for real-time updates ---
+const sseClients = new Set();
+
+app.get('/events', requireLogin, (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+  res.flushHeaders && res.flushHeaders();
+
+  const client = { id: Date.now() + Math.random(), res, user: req.session.user || null };
+  sseClients.add(client);
+
+  // initial ping
+  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+
+  req.on('close', () => {
+    sseClients.delete(client);
+  });
+});
+
+function broadcastEvent(eventName, payload) {
+  const str = `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const c of sseClients) {
+    try { c.res.write(str); } catch (e) { /* ignore broken */ }
+  }
+}
+// --- end SSE ---
 
 // --- AUTH ---
 app.post('/api/login', async (req, res) => {
@@ -353,6 +378,11 @@ app.post('/submit', async (req, res) => {
       sla_hours
     });
 
+    // broadcast creation
+    try {
+      broadcastEvent('ticket_created', { ticketId: newTicket._id.toString(), ticket_number: newTicket.ticket_number, title: newTicket.title, status: newTicket.status, assigned_to: newTicket.assigned_to ? String(newTicket.assigned_to) : null });
+    } catch (e) { /* ignore */ }
+
     res.status(201).json({
       ok: true,
       message: 'Chamado enviado!',
@@ -396,6 +426,11 @@ app.post('/api/tickets', upload.array('attachments'), async (req, res) => {
         try { await Attachment.create({ ticket_id: t._id, filename: file.originalname, url }); } catch(e){}
       }
     }
+
+    // broadcast creation
+    try {
+      broadcastEvent('ticket_created', { ticketId: t._id.toString(), ticket_number: t.ticket_number, title: t.title, status: t.status, assigned_to: t.assigned_to ? String(t.assigned_to) : null });
+    } catch (e) { /* ignore */ }
 
     // RESPONSE: includes ticket_number & protocol
     safeJson(res, {
@@ -450,6 +485,12 @@ app.put('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin','tec
 
     payload.updated_at = new Date();
     const upd = await Ticket.findByIdAndUpdate(id, { $set: payload }, { new: true });
+
+    // broadcast update
+    try {
+      broadcastEvent('ticket_updated', { ticketId: id, status: upd ? upd.status : null, assigned_to: upd && upd.assigned_to ? String(upd.assigned_to) : null, urgency: upd ? upd.urgency : null });
+    } catch (e) { /* ignore */ }
+
     safeJson(res, { ok: true, ticket: upd ? { id: upd._id.toString(), ticket_number: upd.ticket_number } : null });
   } catch (err) { console.error('PUT /api/tickets/:id', err); res.status(500).json({ error: 'db_error', message: err.message }); }
 });
@@ -457,6 +498,10 @@ app.put('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin','tec
 // COMMENTS / DELETE / DETAIL
 app.post('/api/tickets/:id/comments', requireLogin, async (req, res) => {
   const c = await Comment.create({ ticket_id: req.params.id, user_id: req.session.user.id, user_name: req.session.user.name, text: req.body.text });
+  // broadcast comment
+  try {
+    broadcastEvent('comment_created', { ticketId: req.params.id, comment: { id: c._id.toString(), user_name: c.user_name, text: c.text, created_at: c.created_at } });
+  } catch (e) { /* ignore */ }
   safeJson(res, { id: c._id.toString() });
 });
 
@@ -468,6 +513,10 @@ app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'),
   await Attachment.deleteMany({ ticket_id: req.params.id });
   await Comment.deleteMany({ ticket_id: req.params.id });
   await Ticket.findByIdAndDelete(req.params.id);
+
+  // broadcast delete
+  try { broadcastEvent('ticket_deleted', { ticketId: req.params.id }); } catch (e){}
+
   safeJson(res, { ok: true });
 });
 
@@ -556,6 +605,12 @@ async function createTicketFromSlack({ title, description, urgency, slackUserEma
     ticket_token: token,
     urgency: urgency || 'medium'
   });
+
+  // broadcast creation
+  try {
+    broadcastEvent('ticket_created', { ticketId: t._id.toString(), ticket_number: t.ticket_number, title: t.title, status: t.status, assigned_to: t.assigned_to ? String(t.assigned_to) : null });
+  } catch (e) {}
+
   return t;
 }
 
@@ -778,7 +833,6 @@ app.post('/slack/interactions', express.raw({ type: '*/*' }), async (req, res) =
     return res.status(500).send('error');
   }
 });
-
 
 // ---------- Fim do bloco Slack Integration ----------
 

@@ -4,21 +4,34 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SuperADM • Relatórios</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
-    body{font-family:Inter,system-ui,Arial;background:#071025;color:#e6eef6;margin:0;padding:24px}
+    :root{--bg:#071025;--card1:linear-gradient(180deg,#07172a,#08142a);--accent:#06b6d4;--muted:#94a3b8}
+    body{font-family:Inter,system-ui,Arial;background:var(--bg);color:#e6eef6;margin:0;padding:24px}
     .wrap{max-width:1200px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-    .card{background:linear-gradient(180deg, #07172a, #08142a);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+    .card{background:var(--card1);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
     .filters{display:flex;gap:8px;align-items:center}
-    .filters input, .filters select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-    .layout{display:grid;grid-template-columns:1fr 420px;gap:12px;margin-top:12px}
-    .table-wrap{overflow:auto;max-height:520px}
+    .filters input, .filters select, .filters button{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    .layout{display:grid;grid-template-columns:1fr 360px;gap:12px;margin-top:12px}
+    .table-wrap{overflow:auto;max-height:420px}
     table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,0.03);text-align:left}
-    th{color:#94a3b8}
-    .kpi{display:flex;gap:12px}
-    .kpi .k{padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);min-width:160px;text-align:center}
+    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,0.03);text-align:left;font-size:13px}
+    th{color:var(--muted);font-weight:600}
+    .kpi{display:flex;gap:12px;flex-wrap:wrap}
+    .kpi .k{padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);min-width:150px;text-align:center}
+    .small{font-size:13px;color:var(--muted)}
+    .meta{font-size:12px;color:var(--muted)}
+    #chart, #slaChart{width:100%;height:200px}
+    .btn {padding:8px 12px;border-radius:8px;border:none;background:var(--accent);color:#042027;font-weight:600;cursor:pointer}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit}
+    .tech-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.02)}
+    .legend {display:flex;gap:8px;align-items:center}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .muted{color:var(--muted)}
+    @media (max-width:900px){ .layout{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
@@ -26,35 +39,45 @@
     <div class="header">
       <div>
         <h2 style="margin:0">Painel de Relatórios — SuperADM</h2>
-        <div style="font-size:13px;color:#94a3b8">Visão ampla de chamados, técnicos e desempenho</div>
+        <div class="small">Visão ampla de chamados, técnicos, SLA e tempos de resolução</div>
       </div>
+
       <div class="filters card">
-        <label style="margin-right:8px">Período</label>
+        <label class="small" style="margin-right:8px">Período</label>
         <input id="from" type="date" />
         <input id="to" type="date" />
         <select id="groupBy"><option value="day">Dia</option><option value="week">Semana</option><option value="month">Mês</option></select>
-        <button id="apply" style="padding:8px 12px;border-radius:8px;border:none;background:#06b6d4;color:#042027;font-weight:600;cursor:pointer">Aplicar</button>
+        <button id="apply" class="btn">Aplicar</button>
       </div>
     </div>
 
     <div class="card">
       <div class="kpi">
-        <div class="k"><div style="font-size:12px;color:#94a3b8">Chamados</div><div id="k-chamados" style="font-size:18px;font-weight:700">--</div></div>
-        <div class="k"><div style="font-size:12px;color:#94a3b8">Abertos</div><div id="k-abertos" style="font-size:18px;font-weight:700">--</div></div>
-        <div class="k"><div style="font-size:12px;color:#94a3b8">Fechados</div><div id="k-fechados" style="font-size:18px;font-weight:700">--</div></div>
-        <div class="k"><div style="font-size:12px;color:#94a3b8">Técnicos</div><div id="k-techs" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div class="small">Chamados</div><div id="k-chamados" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div class="small">Abertos</div><div id="k-abertos" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div class="small">Fechados</div><div id="k-fechados" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div class="small">Técnicos</div><div id="k-techs" style="font-size:18px;font-weight:700">--</div></div>
+        <div class="k"><div class="small">SLA (≤3h)</div><div id="k-sla" style="font-size:18px;font-weight:700">--%</div></div>
       </div>
     </div>
 
     <div class="layout">
       <div>
         <div class="card" style="margin-bottom:12px">
-          <canvas id="chart" height="160"></canvas>
+          <canvas id="chart"></canvas>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <div class="legend">
+              <div class="dot" style="background:#06b6d4"></div><div class="small">Chamados</div>
+              <div style="width:16px"></div>
+              <div class="dot" style="background:#f97316"></div><div class="small">Média resolução (horas)</div>
+            </div>
+            <div class="small muted">Linha de SLA: 3 horas (média)</div>
+          </div>
         </div>
 
         <div class="card table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Título</th><th>Status</th><th>Técnico</th><th>Data</th><th>Ações</th></tr></thead>
+            <thead><tr><th>ID</th><th>Título</th><th>Status</th><th>Técnico</th><th>Tempo (h)</th><th>Data</th></tr></thead>
             <tbody id="reports-body"></tbody>
           </table>
         </div>
@@ -68,7 +91,17 @@
 
         <div class="card" style="margin-top:12px">
           <h4 style="margin:0 0 8px 0">Exportar</h4>
-          <button id="export-csv" style="padding:8px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit">Exportar CSV</button>
+          <div style="display:flex;gap:8px">
+            <button id="export-csv" class="btn-ghost">Exportar CSV</button>
+            <button id="refresh" class="btn">Recarregar</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4 style="margin:0 0 8px 0">Observações</h4>
+          <div class="small muted">
+            Para cálculos de SLA precisos, o backend deve fornecer o timestamp de fechamento (campo <code>closed_at</code> ou <code>updated_at</code>). Caso contrário usamos o horário atual como fallback para chamados abertos.
+          </div>
         </div>
       </div>
     </div>
