@@ -261,6 +261,49 @@ async function showDetail(id) {
       };
     }
 
+    // Adiciona botão Excluir apenas para superadmin
+    (function addDeleteButtonIfAllowed(){
+      const saveContainer = document.getElementById('saveChanges')?.parentElement;
+      if (!saveContainer) return;
+      const existing = document.getElementById('deleteTicket');
+      if (existing) existing.remove();
+
+      const delBtn = document.createElement('button');
+      delBtn.id = 'deleteTicket';
+      delBtn.className = 'btn';
+      delBtn.style.marginRight = '8px';
+      delBtn.style.background = '#e05353';
+      delBtn.style.color = '#fff';
+      delBtn.textContent = 'Excluir';
+      // por padrão escondido; só mostra se for superadmin
+      delBtn.style.display = 'none';
+      saveContainer.prepend(delBtn);
+
+      if (currentUser && currentUser.role === 'superadmin') {
+        delBtn.style.display = 'inline-block';
+        delBtn.onclick = async () => {
+          if (!confirm('Confirma exclusão deste chamado? Essa ação não pode ser desfeita.')) return;
+          delBtn.disabled = true;
+          try {
+            const res = await fetch('/api/tickets/' + id, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+              alert('Chamado excluído');
+              await loadTickets();
+              detail.innerHTML = '<div class="small">Chamado excluído.</div>';
+            } else {
+              const body = await res.json().catch(()=>null);
+              alert('Erro ao excluir: ' + (body && (body.error||body.message) || res.status));
+              delBtn.disabled = false;
+            }
+          } catch (err) {
+            console.error('deleteTicket error', err);
+            alert('Erro ao excluir chamado');
+            delBtn.disabled = false;
+          }
+        };
+      }
+    })();
+
     const sendBtn = document.getElementById('sendComment');
     if (sendBtn) {
       sendBtn.onclick = async () => {

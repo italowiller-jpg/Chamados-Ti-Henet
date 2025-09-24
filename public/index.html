@@ -2,17 +2,77 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>He_Net - Painel</title>
+  <title>He_Net — Central de Suporte</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <link rel="stylesheet" href="/styles.css"/>
   <style>
-    .pwd-toggle { cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
-    .ticket-item { 
-      padding:8px; 
-      border-bottom:1px solid #ddd; 
-      cursor:pointer; 
+    :root{
+      --bg: #f5f8fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --border: #e6eaef;
+      --accent: #0b67ff;
+      --radius:10px;
     }
-    .ticket-item:hover { background:#f7f7f7; }
+
+    body{ margin:0; font-family: Inter, system-ui, Arial, sans-serif; background:linear-gradient(#f8fbff,#f5f8fb); color:#0b1724; }
+    .header{ display:flex; justify-content:space-between; align-items:center; padding:12px 20px; box-shadow:0 3px 18px rgba(11,20,40,0.04); background:transparent; position:sticky; top:0; z-index:20; }
+    .brand{ display:flex; align-items:center; gap:12px; }
+    .logo img{ width:44px; height:44px; border-radius:8px; object-fit:cover; display:block; }
+    .text strong{ display:block; font-size:16px; }
+    .text .small{ color:var(--muted); font-size:12px; margin-top:-4px; }
+
+    .actions{ display:flex; gap:8px; align-items:center; }
+    .btn{ padding:8px 12px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer; }
+    .btn.ghost{ background:transparent; color:var(--accent); border:1px solid rgba(11,103,255,0.08); }
+    .btn.secondary{ background:#f1f5f9; color:#0b1724; border:1px solid var(--border); }
+    .btn.outline{ background:transparent; border:1px solid var(--border); color:#0b1724; }
+
+    main { padding:26px 18px; }
+    .container { max-width:1280px; margin:0 auto; }
+
+    /* Hero */
+    .hero-area{ padding:6px 0 18px 0; }
+    .hero-left h1{ margin:18px 0 6px; font-size:28px; color:#08304a; }
+    .lead{ color:var(--muted); max-width:980px; }
+
+    /* Dashboard grid */
+    #dashboard{ display:none; margin-top:10px; }
+    .dashboard-grid { display:grid; grid-template-columns: 420px 1fr; gap:24px; align-items:start; }
+
+    .left-col { display:flex; flex-direction:column; gap:14px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; box-shadow:0 6px 18px rgba(10,20,40,0.03); }
+    .tickets-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    select.input{ padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#fff; min-width:140px; }
+
+    .tickets-list-wrap{ background:transparent; padding-top:8px; }
+    #ticketsList{ max-height: calc(78vh - 200px); overflow:auto; display:flex; flex-direction:column; gap:10px; padding-right:6px; }
+
+    .ticket-item{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between; background:#fff; padding:12px; border-radius:8px; border-left:4px solid transparent; box-shadow: 0 1px 3px rgba(10,20,40,0.03); cursor:pointer; transition:transform .08s ease, box-shadow .12s ease; }
+    .ticket-item:hover{ transform:translateY(-2px); box-shadow:0 8px 20px rgba(8,20,40,0.05); }
+    .ticket-item.selected{ border-left-color:var(--accent); background:linear-gradient(90deg,#ffffff,#f6fbff); }
+
+    .ticket-meta{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+    .ticket-meta .title{ font-weight:600; font-size:15px; color:#072033; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ticket-meta .sub{ font-size:12px; color:var(--muted); }
+
+    .status-badge{ font-size:12px; padding:6px 8px; border-radius:12px; font-weight:600; min-width:84px; text-align:center; }
+    .status-new{ background:#eff6ff; color:#0b67ff; border:1px solid rgba(11,103,255,0.08); }
+    .status-progress{ background:#fff7ed; color:#ff8a00; border:1px solid rgba(255,138,0,0.08); }
+    .status-done{ background:#f0fdf4; color:#059669; border:1px solid rgba(5,150,105,0.06); }
+    .status-closed{ background:#f3f4f6; color:#6b7280; border:1px solid rgba(99,102,106,0.04); }
+
+    .right-col { display:flex; flex-direction:column; gap:14px; }
+    .ticket-detail{ min-height:320px; max-height: calc(78vh - 160px); overflow:auto; padding:14px; border-radius:8px; border:1px solid var(--border); background:var(--card); }
+
+    .form-row{ margin-bottom:12px; }
+
+    @media (max-width:1150px){ .dashboard-grid{ grid-template-columns: 360px 1fr; } }
+    @media (max-width:900px){ .dashboard-grid{ grid-template-columns: 1fr; } #ticketsList{ max-height: 260px; } .ticket-detail{ max-height: 360px; } }
+
+    .small{ font-size:13px; color:var(--muted); }
+    .muted{ color:var(--muted); }
+    .pwd-toggle { cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
   </style>
 </head>
 <body>
@@ -23,7 +83,7 @@
       </div>
       <div class="text">
         <strong id="siteTitle">He_Net</strong>
-        <div class="small" id="siteSubtitle">Sistema de Chamados</div>
+        <div class="small" id="siteSubtitle">Central de Suporte</div>
       </div>
     </div>
 
@@ -36,31 +96,31 @@
     </div>
   </div>
 
-  <main class="main-degrade">
+  <main>
     <div class="container">
 
       <!-- CARTÃO PRINCIPAL - LOGIN -->
       <section id="hero" class="hero-area">
         <div class="hero-left">
-          <h1>Bem-vindo ao <strong>He_Net</strong></h1>
-          <p class="lead">Abra e acompanhe chamados com facilidade. Faça login para gerenciar internamente ou use o formulário público para enviar chamados.</p>
+          <h1>Bem-vindo à <strong>He_Net</strong></h1>
+          <p class="lead">Central de suporte para sua equipe — abra, acompanhe e resolva chamados com eficiência. Atribua técnicos, registre comentários e acompanhe o histórico dos atendimentos.</p>
         </div>
 
-        <div class="hero-right">
-          <div id="loginCard" class="card login-card">
-            <h3>Entrar no painel</h3>
+        <div class="hero-right" style="margin-top:12px">
+          <div id="loginCard" class="card login-card" style="max-width:480px">
+            <h3>Acessar o Painel</h3>
 
             <form id="loginForm" class="form-vertical" onsubmit="return false;">
               <label class="label">E-mail</label>
-              <input id="email" class="input" type="email" placeholder="seu@email.com" autocomplete="username" required>
+              <input id="email" class="input" type="email" placeholder="seu@email.com" autocomplete="username" required style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
 
-              <label class="label">Senha</label>
+              <label class="label" style="margin-top:10px">Senha</label>
               <div style="position:relative">
-                <input id="password" class="input" type="password" placeholder="••••••••" autocomplete="current-password" required>
-                <button type="button" id="togglePwd" class="btn ghost pwd-toggle" title="Mostrar/ocultar senha" style="position:absolute; right:6px; top:6px; height:34px; padding:6px 8px">👁️</button>
+                <input id="password" class="input" type="password" placeholder="••••••••" autocomplete="current-password" required style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
+                <button type="button" id="togglePwd" class="btn ghost pwd-toggle" title="Mostrar/ocultar senha" style="position:absolute; right:8px; top:8px; height:36px; padding:6px 8px">👁️</button>
               </div>
 
-              <div class="form-row" style="align-items:center;justify-content:space-between;margin-top:8px">
+              <div class="form-row" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
                 <label style="display:flex;align-items:center;gap:8px;font-size:14px">
                   <input id="rememberMe" type="checkbox" style="width:16px;height:16px;margin:0"> Manter conectado
                 </label>
@@ -76,43 +136,72 @@
             </form>
 
             <div class="small muted" style="margin-top:10px">
-              Faça login com sua conta interna para gerenciar chamados. Ou use o botão <strong>Abrir chamado</strong> para enviar um chamado público.
+              Use sua conta interna para gerenciar chamados. Para clientes, use o botão <strong>Abrir chamado</strong> para enviar solicitações públicas.
             </div>
           </div>
         </div>
       </section>
 
       <!-- DASHBOARD -->
-      <section id="dashboard" style="display:none;margin-top:20px">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><strong>Chamados</strong></div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <select id="filterStatus" class="input" style="display:inline-block;width:auto">
-                <option value="">Todos</option>
-                <option value="new">Novo</option>
-                <option value="in_progress">Em andamento</option>
-                <option value="resolved">Concluído</option>
-                <option value="closed">Fechado</option>
-              </select>
-              <button id="refreshBtn" class="btn secondary">Atualizar</button>
+      <section id="dashboard">
+        <div class="dashboard-grid">
+          <!-- LEFT: lista -->
+          <div class="left-col">
+            <div class="card tickets-card">
+              <div class="tickets-top">
+                <div style="font-weight:600">Chamados</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="filterStatus" class="input">
+                    <option value="">Todos</option>
+                    <option value="new">Novo</option>
+                    <option value="in_progress">Em andamento</option>
+                    <option value="resolved">Concluído</option>
+                    <option value="closed">Fechado</option>
+                  </select>
+                  <button id="refreshBtn" class="btn secondary">Atualizar</button>
+                </div>
+              </div>
+
+              <div class="tickets-list-wrap">
+                <div id="ticketsList">
+                  <div class="ticket-item" data-id="12345" data-status="new">
+                    <div class="ticket-meta">
+                      <div class="title">#12345 - Problema na conexão</div>
+                      <div class="sub">ítalo willer • 23/09/2025, 14:38:21</div>
+                    </div>
+                    <div style="display:flex;align-items:flex-start">
+                      <div class="status-badge status-new">Novo</div>
+                    </div>
+                  </div>
+
+                  <div class="ticket-item" data-id="12346" data-status="in_progress">
+                    <div class="ticket-meta">
+                      <div class="title">#12346 - Impressora não funciona</div>
+                      <div class="sub">Técnico • 23/09/2025, 11:58:24</div>
+                    </div>
+                    <div style="display:flex;align-items:flex-start">
+                      <div class="status-badge status-progress">Em andamento</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
             </div>
           </div>
 
-          <div id="ticketsList" style="margin-top:12px">
-            <div class="ticket-item" data-id="12345">
-              <strong>#12345</strong> - Problema na conexão (Novo)
+          <!-- RIGHT: detalhe -->
+          <div class="right-col">
+            <div class="card">
+              <h4 style="margin:0 0 10px;">Detalhes do chamado</h4>
+              <div id="ticketDetail" class="ticket-detail">
+                Selecione um chamado à esquerda para ver detalhes.
+              </div>
             </div>
-            <div class="ticket-item" data-id="12346">
-              <strong>#12346</strong> - Impressora não funciona (Em andamento)
-            </div>
-          </div>
-        </div>
 
-        <div class="card" style="margin-top:12px">
-          <h4>Detalhes do chamado</h4>
-          <div id="ticketDetail" class="ticket-detail">
-            Selecione um chamado para ver detalhes
+            <div class="card">
+              <h4 style="margin:0 0 10px;">Atividades</h4>
+              <div class="small muted">Nenhuma atividade selecionada.</div>
+            </div>
           </div>
         </div>
       </section>
@@ -120,7 +209,7 @@
     </div>
   </main>
 
-  <footer class="footer">He_Net - Sistema de Chamados</footer>
+  <footer class="footer" style="padding:18px 0;text-align:center;color:var(--muted)">He_Net — Central de Suporte</footer>
 
   <script src="/app.js"></script>
   <script src="/admin-check.js"></script>
@@ -166,28 +255,108 @@
         document.getElementById('loginCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
 
-      // Botão Admin
-      document.getElementById('openAdmin')?.addEventListener('click', ()=>{
-        window.location.href = '/admin';
+      document.getElementById('openAdmin')?.addEventListener('click', ()=>{ window.location.href = '/admin'; });
+      document.getElementById('openReports')?.addEventListener('click', ()=>{ window.location.href = '/reports'; });
+
+      function tryShowDashboardIfLogged() {
+        const demoLogged = localStorage.getItem('henet_demo_logged') === '1';
+        if (demoLogged) {
+          document.getElementById('dashboard').style.display = 'block';
+          document.getElementById('hero').style.display = 'none';
+          document.getElementById('logoutBtn').style.display = 'inline-block';
+          document.getElementById('loginBtn').style.display = 'none';
+        }
+      }
+      tryShowDashboardIfLogged();
+
+      const ticketsList = document.getElementById('ticketsList');
+      const ticketDetail = document.getElementById('ticketDetail');
+      const filterSelect = document.getElementById('filterStatus');
+
+      function clearSelected(){
+        document.querySelectorAll('.ticket-item.selected').forEach(el=>el.classList.remove('selected'));
+      }
+
+      function renderDetailFromItem(item){
+        const id = item.getAttribute('data-id');
+        const title = item.querySelector('.title')?.textContent || item.textContent.trim();
+        const sub = item.querySelector('.sub')?.textContent || '';
+        const status = item.getAttribute('data-status') || 'in_progress';
+
+        ticketDetail.innerHTML = `
+          <p style="margin:0 0 6px"><strong>Número:</strong> #${id}</p>
+          <p style="margin:0 0 6px"><strong>Título:</strong> ${title}</p>
+          <p class="small muted" style="margin:0 0 12px">${sub}</p>
+
+          <div class="form-row">
+            <label class="small">Status</label>
+            <div style="margin-top:6px">
+              <select style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
+                <option ${status==='new'?'selected':''} value="new">Novo</option>
+                <option ${status==='in_progress'?'selected':''} value="in_progress">Em andamento</option>
+                <option ${status==='resolved'?'selected':''} value="resolved">Concluído</option>
+                <option ${status==='closed'?'selected':''} value="closed">Fechado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="small">Descrição</label>
+            <div style="margin-top:6px">
+              <textarea style="width:100%;min-height:160px;padding:10px;border-radius:8px;border:1px solid var(--border)">Exemplo de descrição do chamado #${id}. Substitua por seus dados reais vindo do backend.</textarea>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:8px">
+            <button class="btn">Salvar</button>
+            <button class="btn ghost">Atribuir</button>
+            <button class="btn ghost">Fechar</button>
+          </div>
+        `;
+
+        item.scrollIntoView({ behavior:'smooth', block:'center' });
+        if (window.innerWidth <= 900) ticketDetail.scrollIntoView({ behavior:'smooth', block:'start' });
+      }
+
+      ticketsList.addEventListener('click', (ev) => {
+        const item = ev.target.closest('.ticket-item');
+        if (!item) return;
+        clearSelected();
+        item.classList.add('selected');
+        renderDetailFromItem(item);
       });
 
-      // Botão Relatórios
-      document.getElementById('openReports')?.addEventListener('click', ()=>{
-        window.location.href = '/reports';
-      });
-
-      document.querySelectorAll('.ticket-item').forEach(item=>{
-        item.addEventListener('click', ()=>{
-          const id = item.getAttribute('data-id');
-          const title = item.textContent;
-          document.getElementById('ticketDetail').innerHTML = `
-            <p><strong>Número:</strong> #${id}</p>
-            <p><strong>Título:</strong> ${title}</p>
-            <p><strong>Status:</strong> Em andamento</p>
-            <p><strong>Descrição:</strong> Exemplo de descrição do chamado #${id}.</p>
-          `;
+      filterSelect?.addEventListener('change', () => {
+        const val = filterSelect.value;
+        document.querySelectorAll('#ticketsList .ticket-item').forEach(it=>{
+          if(!val) it.style.display = '';
+          else it.style.display = (it.getAttribute('data-status') === val) ? '' : 'none';
         });
+        clearSelected();
+        ticketDetail.innerHTML = 'Selecione um chamado para ver detalhes';
       });
+
+      document.getElementById('refreshBtn')?.addEventListener('click', ()=>{
+        clearSelected();
+        ticketDetail.innerHTML = '<div class="small muted">Lista atualizada — selecione um chamado.</div>';
+      });
+
+      document.getElementById('logoutBtn')?.addEventListener('click', ()=>{
+        localStorage.removeItem('henet_demo_logged');
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('hero').style.display = 'block';
+        document.getElementById('logoutBtn').style.display = 'none';
+        document.getElementById('loginBtn').style.display = 'inline-block';
+      });
+
+      window.addEventListener('load', ()=>{
+        const first = document.querySelector('#ticketsList .ticket-item');
+        if(first){
+          first.classList.add('selected');
+          renderDetailFromItem(first);
+        }
+      });
+
     })();
   </script>
 </body>
