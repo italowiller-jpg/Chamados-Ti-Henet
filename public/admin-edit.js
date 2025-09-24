@@ -1,3 +1,7 @@
+// public/admin-edit.js
+// Script para admin-edit.html — lista usuários, técnicos, cria/edita/exclui
+// Ajustado para usar credentials e tratamento de logout seguro
+
 document.addEventListener("DOMContentLoaded", () => {
   const tabs = {
     users: document.getElementById("tab-users"),
@@ -23,21 +27,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     clearEditor();
   }
-  tabs.users.addEventListener("click", () => switchTab("users"));
-  tabs.techs.addEventListener("click", () => switchTab("techs"));
+  if (tabs.users) tabs.users.addEventListener("click", () => switchTab("users"));
+  if (tabs.techs) tabs.techs.addEventListener("click", () => switchTab("techs"));
 
   function clearEditor() {
-    editor.empty.style.display = "block";
-    editor.user.style.display = "none";
-    editor.tech.style.display = "none";
+    if (editor.empty) editor.empty.style.display = "block";
+    if (editor.user) editor.user.style.display = "none";
+    if (editor.tech) editor.tech.style.display = "none";
     selectedUser = null;
     selectedTech = null;
   }
 
   function openUserEditor(user) {
-    editor.empty.style.display = "none";
+    if (!editor.user) return;
+    if (editor.empty) editor.empty.style.display = "none";
     editor.user.style.display = "block";
-    editor.tech.style.display = "none";
     selectedUser = user;
     document.getElementById("editUserName").value = user.name;
     document.getElementById("editUserEmail").value = user.email;
@@ -46,7 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openTechEditor(tech) {
-    editor.empty.style.display = "none";
+    if (!editor.tech) return;
+    if (editor.empty) editor.empty.style.display = "none";
     editor.user.style.display = "none";
     editor.tech.style.display = "block";
     selectedTech = tech;
@@ -56,7 +61,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadUsers() {
-    const res = await fetch("/api/users");
+    const res = await fetch("/api/users", { credentials: 'include' });
+    if (!res.ok) return;
     const users = await res.json();
     const wrap = document.getElementById("usersTableWrap");
     let html = `<table class="table"><thead><tr>
@@ -71,11 +77,12 @@ document.addEventListener("DOMContentLoaded", () => {
       </tr>`;
     });
     html += "</tbody></table>";
-    wrap.innerHTML = html;
+    if (wrap) wrap.innerHTML = html;
   }
 
   async function loadTechs() {
-    const res = await fetch("/api/technicians");
+    const res = await fetch("/api/technicians", { credentials: 'include' });
+    if (!res.ok) return;
     const techs = await res.json();
     const wrap = document.getElementById("techTableWrap");
     let html = `<table class="table"><thead><tr>
@@ -90,10 +97,11 @@ document.addEventListener("DOMContentLoaded", () => {
       </tr>`;
     });
     html += "</tbody></table>";
-    wrap.innerHTML = html;
+    if (wrap) wrap.innerHTML = html;
   }
 
-  document.getElementById("createUserBtn").addEventListener("click", async () => {
+  const createUserBtn = document.getElementById("createUserBtn");
+  if (createUserBtn) createUserBtn.addEventListener("click", async () => {
     const data = {
       name: document.getElementById("newUserName").value,
       email: document.getElementById("newUserEmail").value,
@@ -102,53 +110,58 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     await fetch("/api/users", {
       method: "POST",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    loadUsers();
+    await loadUsers();
   });
 
-  document.getElementById("saveUserBtn").addEventListener("click", async () => {
+  const saveUserBtn = document.getElementById("saveUserBtn");
+  if (saveUserBtn) saveUserBtn.addEventListener("click", async () => {
     if (!selectedUser) return;
     const data = {
       name: document.getElementById("editUserName").value,
       role: document.getElementById("editUserRole").value,
     };
     const newPass = document.getElementById("editUserPass").value;
-    if (newPass) {
-      data.password = newPass;
-    }
+    if (newPass) data.password = newPass;
     await fetch(`/api/users/${selectedUser.id}`, {
       method: "PUT",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    loadUsers();
+    await loadUsers();
     clearEditor();
   });
 
-  document.getElementById("deleteUserBtn").addEventListener("click", async () => {
+  const deleteUserBtn = document.getElementById("deleteUserBtn");
+  if (deleteUserBtn) deleteUserBtn.addEventListener("click", async () => {
     if (!selectedUser) return;
     if (!confirm("Excluir este usuário?")) return;
-    await fetch(`/api/users/${selectedUser.id}`, { method: "DELETE" });
-    loadUsers();
+    await fetch(`/api/users/${selectedUser.id}`, { method: "DELETE", credentials: 'include' });
+    await loadUsers();
     clearEditor();
   });
 
-  document.getElementById("createTechBtn").addEventListener("click", async () => {
+  const createTechBtn = document.getElementById("createTechBtn");
+  if (createTechBtn) createTechBtn.addEventListener("click", async () => {
     const data = {
       display_name: document.getElementById("newTechName").value,
       email: document.getElementById("newTechEmail").value,
     };
     await fetch("/api/technicians", {
       method: "POST",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    loadTechs();
+    await loadTechs();
   });
 
-  document.getElementById("saveTechBtn").addEventListener("click", async () => {
+  const saveTechBtn = document.getElementById("saveTechBtn");
+  if (saveTechBtn) saveTechBtn.addEventListener("click", async () => {
     if (!selectedTech) return;
     const data = {
       display_name: document.getElementById("editTechName").value,
@@ -157,18 +170,20 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     await fetch(`/api/technicians/${selectedTech.id}`, {
       method: "PUT",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    loadTechs();
+    await loadTechs();
     clearEditor();
   });
 
-  document.getElementById("deleteTechBtn").addEventListener("click", async () => {
+  const deleteTechBtn = document.getElementById("deleteTechBtn");
+  if (deleteTechBtn) deleteTechBtn.addEventListener("click", async () => {
     if (!selectedTech) return;
     if (!confirm("Excluir este técnico?")) return;
-    await fetch(`/api/technicians/${selectedTech.id}`, { method: "DELETE" });
-    loadTechs();
+    await fetch(`/api/technicians/${selectedTech.id}`, { method: "DELETE", credentials: 'include' });
+    await loadTechs();
     clearEditor();
   });
 
@@ -181,12 +196,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (action === "edit") {
       if (type === "user") {
-        const res = await fetch("/api/users");
+        const res = await fetch("/api/users", { credentials: 'include' });
         const all = await res.json();
         const user = all.find(u => u.id === id);
         if (user) openUserEditor(user);
       } else {
-        const res = await fetch("/api/technicians");
+        const res = await fetch("/api/technicians", { credentials: 'include' });
         const all = await res.json();
         const tech = all.find(t => t.id === id);
         if (tech) openTechEditor(tech);
@@ -194,27 +209,29 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (action === "delete") {
       if (type === "user") {
         if (!confirm("Excluir este usuário?")) return;
-        await fetch(`/api/users/${id}`, { method: "DELETE" });
-        loadUsers();
+        await fetch(`/api/users/${id}`, { method: "DELETE", credentials: 'include' });
+        await loadUsers();
       } else {
         if (!confirm("Excluir este técnico?")) return;
-        await fetch(`/api/technicians/${id}`, { method: "DELETE" });
-        loadTechs();
+        await fetch(`/api/technicians/${id}`, { method: "DELETE", credentials: 'include' });
+        await loadTechs();
       }
       clearEditor();
     }
   });
 
-  // Botões do topo
-  document.getElementById("backHome").addEventListener("click", () => {
+  // Top buttons
+  const backHomeBtn = document.getElementById("backHome");
+  if (backHomeBtn) backHomeBtn.addEventListener("click", () => { window.location.href = "/index.html"; });
+  const toReportsBtn = document.getElementById("toReports");
+  if (toReportsBtn) toReportsBtn.addEventListener("click", () => { window.location.href = "/superadmin-reports.html"; });
+
+  const logoutBtnDom = document.getElementById("logout");
+  if (logoutBtnDom) logoutBtnDom.addEventListener("click", async () => {
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: 'include' });
+    } catch (e) { console.warn('logout erro', e); }
     window.location.href = "/index.html";
-  });
-  document.getElementById("toReports").addEventListener("click", () => {
-    window.location.href = "/superadmin-reports.html";
-  });
-  document.getElementById("logout").addEventListener("click", async () => {
-    await fetch("/api/logout", { method: "POST", credentials: "include" });
-    window.location.href = "/login.html";
   });
 
   // Inicialização

@@ -1,4 +1,8 @@
-// server.js (MongoDB + Mongoose - ES MODULES) - CORRIGIDO (retorna ticket_number + protocol)
+// server.js - Versão final com correções:
+// - PUT /api/users/:id -> faz hash da senha quando enviada
+// - PUT /api/tickets/:id -> permite que 'technician' apenas se auto-atribua
+// - POST /api/tickets -> retorna ticket_number + protocol
+// - GET /api/technicians/me -> retorna registro technician vinculado ao user logado
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
@@ -22,29 +26,60 @@ mongoose.connect(MONGO_URI)
 
 // --- Schemas / Models ---
 const userSchema = new mongoose.Schema({
-  name: String, email: { type: String, unique: true, sparse: true }, password: String,
-  role: { type: String, default: 'operator' }, created_at: { type: Date, default: Date.now }
+  name: String,
+  email: { type: String, unique: true, sparse: true },
+  password: String,
+  role: { type: String, default: 'operator' },
+  created_at: { type: Date, default: Date.now }
 });
+
 const technicianSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  display_name: String, email: String, active: { type: Boolean, default: true }, created_at: { type: Date, default: Date.now }
+  display_name: String,
+  email: String,
+  active: { type: Boolean, default: true },
+  created_at: { type: Date, default: Date.now }
 });
+
 const settingSchema = new mongoose.Schema({ key: { type: String, unique: true }, value: String });
+
 const pageSchema = new mongoose.Schema({
-  clientId: { type: String, unique: true, sparse: true }, title: String, slug: String, html: String,
-  visible: { type: Boolean, default: true }, meta: String, created_at: { type: Date, default: Date.now }, updated_at: { type: Date, default: Date.now }
-});
-const ticketSchema = new mongoose.Schema({
-  ticket_number: Number, title: String, description: String, requester_name: String, requester_email: String,
-  requester_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, ticket_token: String,
-  status: { type: String, default: 'new' }, urgency: { type: String, default: 'medium' },
-  assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'Technician', default: null },
-  assigned_name: String, category_id: String, sla_hours: Number,
+  clientId: { type: String, unique: true, sparse: true },
+  title: String, slug: String, html: String,
+  visible: { type: Boolean, default: true }, meta: String,
   created_at: { type: Date, default: Date.now }, updated_at: { type: Date, default: Date.now }
 });
-const attachmentSchema = new mongoose.Schema({ ticket_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' }, filename: String, url: String, created_at: { type: Date, default: Date.now }});
-const commentSchema = new mongoose.Schema({ ticket_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' }, user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, user_name: String, text: String, created_at: { type: Date, default: Date.now }});
-const counterSchema = new mongoose.Schema({ _id: String, seq: { type: Number, default: 0 }});
+
+const ticketSchema = new mongoose.Schema({
+  ticket_number: Number,
+  title: String,
+  description: String,
+  requester_name: String,
+  requester_email: String,
+  requester_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  ticket_token: String,
+  status: { type: String, default: 'new' },
+  urgency: { type: String, default: 'medium' },
+  assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'Technician', default: null },
+  assigned_name: String,
+  category_id: String,
+  sla_hours: Number,
+  created_at: { type: Date, default: Date.now }, updated_at: { type: Date, default: Date.now }
+});
+
+const attachmentSchema = new mongoose.Schema({
+  ticket_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' },
+  filename: String, url: String,
+  created_at: { type: Date, default: Date.now }
+});
+
+const commentSchema = new mongoose.Schema({
+  ticket_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' },
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  user_name: String, text: String, created_at: { type: Date, default: Date.now }
+});
+
+const counterSchema = new mongoose.Schema({ _id: String, seq: { type: Number, default: 0 } });
 
 const User = mongoose.model('User', userSchema);
 const Technician = mongoose.model('Technician', technicianSchema);
@@ -105,16 +140,27 @@ async function getNextSequence(name){
 
 // --- AUTH ---
 app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Credenciais inválidas' });
-  const user = await User.findOne({ email }).lean();
-  if (!user) return res.status(400).json({ error: 'Credenciais inválidas' });
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(400).json({ error: 'Credenciais inválidas' });
-  req.session.user = { id: user._id.toString(), name: user.name, email: user.email, role: user.role };
-  safeJson(res, { ok: true, user: req.session.user });
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Credenciais inválidas' });
+    const user = await User.findOne({ email }).lean();
+    if (!user) return res.status(400).json({ error: 'Credenciais inválidas' });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(400).json({ error: 'Credenciais inválidas' });
+    req.session.user = { id: user._id.toString(), name: user.name, email: user.email, role: user.role };
+    safeJson(res, { ok: true, user: req.session.user });
+  } catch (e) {
+    console.error('POST /api/login error', e);
+    res.status(500).json({ error: 'server_error' });
+  }
 });
-app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) console.warn('Session destroy error', err);
+    res.json({ ok: true });
+  });
+});
 app.get('/api/me', (req, res) => safeJson(res, req.session.user || null));
 
 // --- USERS ---
@@ -123,6 +169,7 @@ app.get('/api/users', requireLogin, requireRoles('admin','superadmin'), async (r
   const mapped = users.map(u => ({ id: u._id.toString(), name: u.name, email: u.email, role: u.role, created_at: u.created_at }));
   safeJson(res, mapped);
 });
+
 app.post('/api/users', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
@@ -130,12 +177,30 @@ app.post('/api/users', requireLogin, requireRoles('admin','superadmin'), async (
     const hash = await bcrypt.hash(password, 10);
     const u = await User.create({ name, email, password: hash, role: role || 'operator' });
     safeJson(res, { id: u._id.toString() });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error('POST /api/users', err); res.status(500).json({ error: err.message }); }
 });
+
+// ---- CORREÇÃO: PUT /api/users/:id -> agora hash da senha quando enviada ----
 app.put('/api/users/:id', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
-  await User.findByIdAndUpdate(req.params.id, { $set: { name: req.body.name, role: req.body.role } });
-  safeJson(res, { ok: true });
+  try {
+    const payload = {
+      name: req.body.name,
+      role: req.body.role
+    };
+
+    if (req.body.password && typeof req.body.password === 'string' && req.body.password.trim() !== '') {
+      const hashed = await bcrypt.hash(req.body.password, 10);
+      payload.password = hashed;
+    }
+
+    await User.findByIdAndUpdate(req.params.id, { $set: payload });
+    safeJson(res, { ok: true });
+  } catch (err) {
+    console.error('PUT /api/users/:id error', err);
+    res.status(500).json({ error: 'db_error', message: err.message });
+  }
 });
+
 app.delete('/api/users/:id', requireLogin, requireRoles('superadmin'), async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   safeJson(res, { ok: true });
@@ -144,8 +209,7 @@ app.delete('/api/users/:id', requireLogin, requireRoles('superadmin'), async (re
 // --- SETTINGS ---
 app.get('/api/settings', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const all = await Setting.find({}).lean();
-  const obj = {};
-  all.forEach(s => obj[s.key] = s.value);
+  const obj = {}; all.forEach(s => obj[s.key] = s.value);
   safeJson(res, obj);
 });
 app.put('/api/settings', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
@@ -202,8 +266,7 @@ app.put('/api/pages/:id', requireLogin, requireRoles('admin','superadmin'), asyn
   safeJson(res, { ok: true });
 });
 app.delete('/api/pages/:id', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
-  const id = req.params.id;
-  if (isObjectIdString(id)) await Page.findByIdAndDelete(id); else await Page.findOneAndDelete({ clientId: id });
+  const id = req.params.id; if (isObjectIdString(id)) await Page.findByIdAndDelete(id); else await Page.findOneAndDelete({ clientId: id });
   safeJson(res, { ok: true });
 });
 
@@ -224,6 +287,19 @@ app.put('/api/technicians/:id', requireLogin, requireRoles('admin','superadmin')
 app.delete('/api/technicians/:id', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   await Technician.findByIdAndDelete(req.params.id);
   safeJson(res, { ok: true });
+});
+
+// ---- Novo endpoint: retorna technician vinculado ao user logado ----
+app.get('/api/technicians/me', requireLogin, async (req, res) => {
+  try {
+    const t = await Technician.findOne({ user_id: req.session.user.id }).lean();
+    if (!t) return safeJson(res, null);
+    t.id = t._id.toString();
+    safeJson(res, t);
+  } catch (e) {
+    console.error('GET /api/technicians/me', e);
+    res.status(500).json({ error: 'db_error' });
+  }
 });
 
 // --- TICKETS ---
@@ -256,10 +332,7 @@ app.get('/api/tickets', async (req, res) => {
 app.post('/submit', async (req, res) => {
   try {
     const { title, description, user, requester_name, requester_email, category_id, urgency, sla_hours } = req.body;
-
-    if (!title || !description) {
-      return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
-    }
+    if (!title || !description) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
 
     const requester_id = req.session?.user?.id || null;
     const seq = await getNextSequence('ticket_number');
@@ -291,7 +364,7 @@ app.post('/submit', async (req, res) => {
   }
 });
 
-// POST create ticket (assign sequence number)  <-- **AQUI FOI A CORREÇÃO**
+// POST create ticket (assign sequence number)
 app.post('/api/tickets', upload.array('attachments'), async (req, res) => {
   try {
     const { title, description, requester_name, requester_email, category_id, urgency, sla_hours } = req.body;
@@ -318,11 +391,11 @@ app.post('/api/tickets', upload.array('attachments'), async (req, res) => {
         try { fs.renameSync(file.path, dest); } catch(e){ /* ignore */ }
         const url = `/uploads/${path.basename(dest)}`;
         savedFiles.push({ filename: file.originalname, url });
-        await Attachment.create({ ticket_id: t._id, filename: file.originalname, url });
+        try { await Attachment.create({ ticket_id: t._id, filename: file.originalname, url }); } catch(e){}
       }
     }
 
-    // **RESPOSTA CORRIGIDA**: inclui ticket_number e protocol (formato #123)
+    // RESPONSE: includes ticket_number & protocol
     safeJson(res, {
       ok: true,
       id: t._id.toString(),
@@ -338,27 +411,41 @@ app.post('/api/tickets', upload.array('attachments'), async (req, res) => {
   }
 });
 
-// PUT update ticket
+// PUT update ticket -> with restriction for technicians (they can only assign to themselves)
 app.put('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin','technician'), async (req, res) => {
   try {
     const id = req.params.id;
     const payload = {};
     if (req.body.status !== undefined) payload.status = req.body.status;
     if (req.body.urgency !== undefined) payload.urgency = req.body.urgency;
+
     if (req.body.assigned_to !== undefined) {
       if (!req.body.assigned_to) {
         payload.assigned_to = null; payload.assigned_name = '';
       } else {
         const techId = req.body.assigned_to;
-        if (isObjectIdString(techId)) {
-          const tech = await Technician.findById(techId);
-          if (tech) { payload.assigned_to = tech._id; payload.assigned_name = tech.display_name || tech.email || ''; }
-          else { payload.assigned_to = null; payload.assigned_name = ''; }
+
+        // if current user is 'technician' => only allow self-assign
+        if (req.session?.user?.role === 'technician') {
+          const myTech = await Technician.findOne({ user_id: req.session.user.id });
+          if (!myTech) return res.status(403).json({ error: 'forbidden_no_technician_record' });
+          if (myTech._id.toString() !== techId) return res.status(403).json({ error: 'forbidden_assign' });
+
+          payload.assigned_to = myTech._id;
+          payload.assigned_name = myTech.display_name || myTech.email || '';
         } else {
-          payload.assigned_to = null; payload.assigned_name = '';
+          // admin/superadmin branch
+          if (isObjectIdString(techId)) {
+            const tech = await Technician.findById(techId);
+            if (tech) { payload.assigned_to = tech._id; payload.assigned_name = tech.display_name || tech.email || ''; }
+            else { payload.assigned_to = null; payload.assigned_name = ''; }
+          } else {
+            payload.assigned_to = null; payload.assigned_name = '';
+          }
         }
       }
     }
+
     payload.updated_at = new Date();
     const upd = await Ticket.findByIdAndUpdate(id, { $set: payload }, { new: true });
     safeJson(res, { ok: true, ticket: upd ? { id: upd._id.toString(), ticket_number: upd.ticket_number } : null });
@@ -370,6 +457,7 @@ app.post('/api/tickets/:id/comments', requireLogin, async (req, res) => {
   const c = await Comment.create({ ticket_id: req.params.id, user_id: req.session.user.id, user_name: req.session.user.name, text: req.body.text });
   safeJson(res, { id: c._id.toString() });
 });
+
 app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const attachments = await Attachment.find({ ticket_id: req.params.id });
   for (const a of attachments) {
@@ -380,6 +468,7 @@ app.delete('/api/tickets/:id', requireLogin, requireRoles('admin','superadmin'),
   await Ticket.findByIdAndDelete(req.params.id);
   safeJson(res, { ok: true });
 });
+
 app.get('/api/tickets/:id', requireLogin, async (req, res) => {
   try {
     const t = await Ticket.findById(req.params.id).lean();
@@ -405,13 +494,12 @@ app.post('/api/upload', requireLogin, requireRoles('admin','superadmin'), upload
   safeJson(res, { ok: true, url });
 });
 
-// REPORTS ...
-// (mantive o restante igual ao seu original — não alterei outras lógicas)
-
+// FRONTEND ROUTES
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/submit', (req, res) => res.sendFile(path.join(__dirname, 'public', 'submit.html')));
 app.get('/admin', requireLogin, requireRoles('admin','superadmin'), (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-edit.html')));
 app.get('/superadmin-reports', requireLogin, requireRoles('superadmin'), (req, res) => res.sendFile(path.join(__dirname, 'public', 'superadmin-reports.html')));
 
+// START
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Servidor rodando em http://localhost:${PORT}`));

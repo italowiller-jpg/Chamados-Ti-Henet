@@ -1,16 +1,16 @@
 // public/admin-check.js
+// controla exibição dos botões ADM / Relatórios / Logout conforme role
 (function () {
-  const openAdminBtn = document.getElementById('openAdmin');
-  const openReportsBtn = document.getElementById('openReports'); // pode não existir se seu index não tiver
-  const logoutBtn = document.getElementById('logoutBtn');
+  // tenta vários possíveis ids para compatibilidade entre páginas
+  const openAdminBtn = document.getElementById('openAdmin') || document.getElementById('openAdminBtn') || document.getElementById('openAdminLink');
+  const openReportsBtn = document.getElementById('openReports') || document.getElementById('openReportsBtn') || document.getElementById('toReports');
+  const logoutBtn = document.getElementById('logout') || document.getElementById('logoutBtn');
   const loginBtnDom = document.getElementById('loginBtn') || document.getElementById('loginBtnInline');
 
   async function fetchMe() {
     try {
       const res = await fetch('/api/me', { credentials: 'include' });
-      if (!res.ok) {
-        return null;
-      }
+      if (!res.ok) return null;
       const j = await res.json();
       return j;
     } catch (err) {
@@ -22,9 +22,9 @@
   async function updateButtons() {
     const user = await fetchMe();
 
-    // Admin (superadmin) button
+    // Botão ADM: visível para admin ou superadmin
     if (openAdminBtn) {
-      if (user && user.role && String(user.role).toLowerCase() === 'superadmin') {
+      if (user && (String(user.role).toLowerCase() === 'admin' || String(user.role).toLowerCase() === 'superadmin')) {
         openAdminBtn.style.display = 'inline-block';
         openAdminBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/admin-edit.html'; };
       } else {
@@ -33,9 +33,9 @@
       }
     }
 
-    // Reports button: only for admin OR superadmin
+    // Botão Relatórios: visível apenas para superadmin
     if (openReportsBtn) {
-      if (user && user.role && (String(user.role).toLowerCase() === 'admin' || String(user.role).toLowerCase() === 'superadmin')) {
+      if (user && String(user.role).toLowerCase() === 'superadmin') {
         openReportsBtn.style.display = 'inline-block';
         openReportsBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/superadmin-reports.html'; };
       } else {
@@ -49,15 +49,11 @@
     if (loginBtnDom) loginBtnDom.style.display = user ? 'none' : 'inline-block';
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', updateButtons);
-  } else {
-    updateButtons();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updateButtons); else updateButtons();
 
   // checa periodicamente caso a sessão mude (login/logout sem reload)
   setInterval(updateButtons, 3000);
 
-  // Expor util para debug
+  // expor para debug
   window.__adminCheckFetchMe = fetchMe;
 })();
