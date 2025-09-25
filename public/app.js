@@ -1,4 +1,4 @@
-// public/app.js - versão robusta: registra listeners após DOM pronto, expõe window.checkMe
+// public/app.js - versão robusta e ajustada para o CSS fornecido
 let currentUser = null;
 
 function escapeHtml(s = '') {
@@ -8,9 +8,15 @@ function escapeHtml(s = '') {
 const statusMap = { new: 'Novo', in_progress: 'Em andamento', resolved: 'Concluído', closed: 'Fechado' };
 const urgencyMap = { low: 'Baixa', medium: 'Média', high: 'Alta', critical: 'Crítica' };
 
+/* statusClass agora retorna classes compatíveis com o seu CSS (underscore) */
 function statusClass(status) {
   if (!status) return 'status-new';
-  return { new: 'status-new', in_progress: 'status-in_progress', resolved: 'status-resolved', closed: 'status-closed' }[status] || 'status-new';
+  return {
+    new: 'status-new',
+    in_progress: 'status-in_progress',
+    resolved: 'status-resolved',
+    closed: 'status-closed'
+  }[status] || 'status-new';
 }
 
 function safeFormatDate(value) {
@@ -206,12 +212,20 @@ async function loadTickets() {
       if (t.urgency === 'critical' || t.urgency === 'high') div.classList.add('urgent');
       const statusText = statusMap[t.status] || ((t.status || 'new').replace('_', ' '));
       const displayNumber = (t.ticket_number !== undefined && t.ticket_number !== null) ? ('#' + t.ticket_number) : ('#' + (t.id || '—'));
-      const titleSafe = t.title ? escapeHtml(t.title) : (displayNumber);
+      const titleText = t.title ? String(t.title) : '';
+      const titleSafe = titleText ? escapeHtml(titleText) : (displayNumber);
       const requesterSafe = t.requester_name ? escapeHtml(t.requester_name) : '';
       const created = safeFormatDate(t.created_at);
       const assignedName = t.assigned_name ? escapeHtml(t.assigned_name) : 'Sem técnico';
-      div.innerHTML = `<div class="ticket-meta"><div class="title">${displayNumber} - ${titleSafe}</div><div class="sub">${requesterSafe}${created ? ' • ' + created : ''}</div></div>
-        <div style="display:flex;align-items:flex-start"><div class="status-badge ${statusClass(t.status)}">${statusText}</div></div>`;
+
+      div.innerHTML = `<div class="ticket-meta" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+          <div class="title" style="font-weight:600;font-size:15px;color:#072033;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayNumber} - ${titleSafe}</div>
+          <div class="sub" style="font-size:12px;color:var(--muted)">${requesterSafe}${created ? ' • ' + created : ''}</div>
+        </div>
+        <div style="display:flex;align-items:flex-start">
+          <div class="status-badge ${statusClass(t.status)}">${statusText}</div>
+        </div>`;
+
       div.addEventListener('click', () => {
         // scroll and show details
         document.querySelectorAll('.ticket-item.selected').forEach(el => el.classList.remove('selected'));
@@ -244,8 +258,9 @@ async function showDetail(id) {
     const requester = t.requester_name ? escapeHtml(t.requester_name) : (t.requester_email ? escapeHtml(t.requester_email) : '');
     const created = safeFormatDate(t.created_at);
 
-    // Se o usuário for operador, esconder selects e salvar
+    // roles
     const isOperator = !!(currentUser && currentUser.role === 'operator');
+    const isSuperAdmin = !!(currentUser && currentUser.role === 'superadmin');
 
     let html = `
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -256,7 +271,7 @@ async function showDetail(id) {
     `;
 
     if (!isOperator) {
-      // admins e técnicos veem os selects e o botão salvar
+      // admins e técnicos veem os selects e o botão salvar (e possível excluir para superadmin)
       html += `
         <div style="margin-top:12px">
           <label class="label">Status</label>
@@ -271,7 +286,8 @@ async function showDetail(id) {
             <option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option><option value="critical">Crítica</option>
           </select>
 
-          <div style="margin-top:12px;text-align:right">
+          <div style="margin-top:12px;text-align:right;display:flex;gap:8px;justify-content:flex-end;align-items:center">
+            ${isSuperAdmin ? `<button id="deleteTicket" class="btn danger small">Excluir</button>` : ''}
             <button id="saveChanges" class="btn">Salvar</button>
           </div>
         </div>
@@ -332,9 +348,30 @@ async function showDetail(id) {
         try {
           const upd = await fetch('/api/tickets/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
           const data = await upd.json();
-          if (data && data.ok) { alert('Atualizado'); await loadTickets(); await showDetail(id); }
+          if (data && (data.ok || upd.status === 200 || upd.status === 204)) { alert('Atualizado'); await loadTickets(); await showDetail(id); }
           else alert('Erro ao atualizar: ' + (data && (data.error || data.message) || upd.status));
         } catch (err) { console.error('saveChanges error', err); alert('Erro ao atualizar chamado'); }
+      });
+
+      // botão excluir (visível apenas para superadmin) - listener
+      document.getElementById('deleteTicket')?.addEventListener('click', async () => {
+        if (!confirm('Confirmar exclusão do chamado? Esta ação é irreversível.')) return;
+        try {
+          const resp = await fetch('/api/tickets/' + id, { method: 'DELETE', credentials: 'include' });
+          if (resp.ok) {
+            alert('Chamado excluído');
+            await loadTickets();
+            const detailEl = document.getElementById('ticketDetail');
+            if (detailEl) detailEl.innerHTML = '<div class="muted">Chamado removido.</div>';
+          } else {
+            let j = null;
+            try { j = await resp.json(); } catch(e){}
+            alert('Erro ao excluir: ' + (j && (j.error || j.message) || resp.status));
+          }
+        } catch (err) {
+          console.error('delete ticket err', err);
+          alert('Erro de rede ao excluir chamado');
+        }
       });
     }
 
