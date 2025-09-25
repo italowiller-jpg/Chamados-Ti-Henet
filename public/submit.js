@@ -1,4 +1,4 @@
-// public/submit.js - versão atualizada: exibe protocolo (#123) quando disponível
+// public/submit.js - versão com redirecionamento pós-envio
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, { credentials: 'include', ...opts });
   if (!res.ok) {
@@ -122,14 +122,30 @@ document.getElementById('submitBtn').addEventListener('click', async (ev) => {
 
     if (data && data.ok) {
       const protocolo = data.protocol || (data.ticket_number ? ('#' + data.ticket_number) : ('#' + (data.id || '—')));
-      showResult(`✅ Chamado enviado! Protocolo: <strong>${protocolo}</strong>`, false);
+      showResult(`✅ Chamado enviado! Protocolo: <strong>${protocolo}</strong><br>Você será redirecionado em 5 segundos...`, false);
 
+      // limpa formulário
       document.getElementById('title').value = '';
       document.getElementById('description').value = '';
       document.getElementById('category').value = '';
       document.getElementById('urgency').value = 'medium';
       document.getElementById('attachments').value = '';
       setFileList([]);
+
+      // aguarda 5s e decide destino
+      setTimeout(async () => {
+        try {
+          const me = await fetch('/api/me', { credentials: 'include' });
+          if (me.ok) {
+            window.location.href = '/'; // monitoramento (dashboard)
+          } else {
+            window.location.href = '/'; // tela de login (index)
+          }
+        } catch (e) {
+          window.location.href = '/';
+        }
+      }, 5000);
+
     } else {
       showResult((data && data.error) ? data.error : 'Erro ao enviar chamado', true);
     }
