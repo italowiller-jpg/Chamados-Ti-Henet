@@ -12,7 +12,7 @@
     .brand .logo img {
       width:56px;
       height:56px;
-      border-radius:12px;         /* arredondada */
+      border-radius:12px;
       object-fit:cover;
       box-shadow:0 4px 12px rgba(0,0,0,0.08);
     }
@@ -20,8 +20,7 @@
     .card { background:#fff; border:1px solid #eee; padding:14px; border-radius:8px; box-shadow:0 6px 18px rgba(20,20,20,0.03) }
     .form-row { display:flex; gap:10px; margin-top:10px }
     .input { width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; background:#fff }
-    
-    /* ===== Botões ===== */
+
     .btn {
       background:#0b5cff;
       color:#fff;
@@ -33,26 +32,10 @@
       font-weight:600;
     }
     .btn.small { padding:4px 8px; font-size:12px; color:#fff; }
-    
-    /* Botão fantasma (header) */
-    .btn.ghost {
-      background:#fff;
-      border:1px solid #ddd;
-      color:#0b5cff;
-    }
-    
-    /* Botão secundário (Sair) */
-    .btn.secondary {
-      background:#6c6cff;
-      color:#fff;
-    }
-    
-    /* Botão de perigo */
-    .btn.danger {
-      background:#dc2626;
-      color:#fff;
-    }
-    
+    .btn.ghost { background:#fff; border:1px solid #ddd; color:#0b5cff; }
+    .btn.secondary { background:#6c6cff; color:#fff; }
+    .btn.danger { background:#dc2626; color:#fff; }
+
     .muted { color:#666; font-size:13px }
     .split { display:flex; gap:18px; align-items:flex-start; margin-top:14px }
     .left { flex:1 }
@@ -62,10 +45,12 @@
     .tab-btn.active { background:#0b5cff; color:#fff }
     table.table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px }
     table.table th, table.table td { padding:8px; border-bottom:1px solid #f2f2f2; text-align:left }
-    table.table td.actions { width:110px }
+    table.table td.actions { width:160px }
     .panel { padding:12px; border-left:1px solid #f0f0f0; min-height:200px; background:#fafafa; border-radius:6px }
     .small { font-size:13px; color:#666 }
     .badge { padding:4px 8px; border-radius:999px; font-size:12px; background:#eee }
+    .approved-yes { background:#ecfdf5; color:#059669; padding:6px 8px; border-radius:6px; display:inline-block; font-weight:600; }
+    .approved-no { background:#fff7f7; color:#dc2626; padding:6px 8px; border-radius:6px; display:inline-block; font-weight:600; }
   </style>
 </head>
 <body>
@@ -162,6 +147,15 @@
             </select>
             <label style="margin-top:8px">Senha (opcional)</label>
             <input id="editUserPass" type="password" class="input" placeholder="••••••••">
+            <div style="margin-top:8px">
+              <label class="small">Aprovado</label>
+              <div style="margin-top:6px">
+                <select id="editUserApproved" class="input">
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+            </div>
             <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
               <button id="deleteUserBtn" class="btn danger small">Excluir</button>
               <button id="saveUserBtn" class="btn small">Salvar</button>
@@ -191,6 +185,5 @@
   </div>
 
   <script src="/admin-edit.js"></script>
-  <script src="/admin-check.js"></script>
 </body>
 </html>

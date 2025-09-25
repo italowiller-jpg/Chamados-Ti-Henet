@@ -1,7 +1,4 @@
-// public/admin-edit.js
-// Script para admin-edit.html — lista usuários, técnicos, cria/edita/exclui
-// Ajustado para usar credentials e tratamento de logout seguro
-
+// public/admin-edit.js - adicionado suporte para aprovar/revogar usuários
 document.addEventListener("DOMContentLoaded", () => {
   const tabs = {
     users: document.getElementById("tab-users"),
@@ -47,6 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("editUserEmail").value = user.email;
     document.getElementById("editUserRole").value = user.role;
     document.getElementById("editUserPass").value = "";
+    document.getElementById("editUserApproved").value = user.approved ? "true" : "false";
   }
 
   function openTechEditor(tech) {
@@ -66,12 +64,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const users = await res.json();
     const wrap = document.getElementById("usersTableWrap");
     let html = `<table class="table"><thead><tr>
-      <th>Nome</th><th>Email</th><th>Role</th><th class="actions">Ações</th></tr></thead><tbody>`;
+      <th>Nome</th><th>Email</th><th>Role</th><th>Aprovado</th><th class="actions">Ações</th></tr></thead><tbody>`;
     users.forEach(u => {
       html += `<tr>
-        <td>${u.name}</td><td>${u.email}</td><td><span class="badge">${u.role}</span></td>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td><span class="badge">${u.role}</span></td>
+        <td>${u.approved ? '<span class="approved-yes">Sim</span>' : '<span class="approved-no">Não</span>'}</td>
         <td class="actions">
           <button class="btn small" data-id="${u.id}" data-type="user" data-action="edit">Editar</button>
+          <button class="btn" data-id="${u.id}" data-type="user" data-action="approve">${u.approved ? 'Revogar' : 'Aprovar'}</button>
           <button class="btn danger small" data-id="${u.id}" data-type="user" data-action="delete">Excluir</button>
         </td>
       </tr>`;
@@ -114,6 +116,9 @@ document.addEventListener("DOMContentLoaded", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+    document.getElementById("newUserName").value = '';
+    document.getElementById("newUserEmail").value = '';
+    document.getElementById("newUserPass").value = '';
     await loadUsers();
   });
 
@@ -123,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = {
       name: document.getElementById("editUserName").value,
       role: document.getElementById("editUserRole").value,
+      approved: document.getElementById("editUserApproved").value === "true"
     };
     const newPass = document.getElementById("editUserPass").value;
     if (newPass) data.password = newPass;
@@ -157,6 +163,8 @@ document.addEventListener("DOMContentLoaded", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+    document.getElementById("newTechName").value = '';
+    document.getElementById("newTechEmail").value = '';
     await loadTechs();
   });
 
@@ -216,6 +224,21 @@ document.addEventListener("DOMContentLoaded", () => {
         await fetch(`/api/technicians/${id}`, { method: "DELETE", credentials: 'include' });
         await loadTechs();
       }
+      clearEditor();
+    } else if (action === "approve" && type === "user") {
+      // toggle approve/revoke
+      const res = await fetch("/api/users", { credentials: 'include' });
+      const all = await res.json();
+      const user = all.find(u => u.id === id);
+      if (!user) return;
+      const newApproved = !user.approved;
+      if (!confirm(`${newApproved ? 'Aprovar' : 'Revogar'} usuário ${user.email}?`)) return;
+      await fetch(`/api/users/${id}`, {
+        method: "PUT", credentials: 'include',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved: newApproved })
+      });
+      await loadUsers();
       clearEditor();
     }
   });

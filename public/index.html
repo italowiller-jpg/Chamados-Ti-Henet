@@ -23,8 +23,8 @@
     .text .small{ color:var(--muted); font-size:12px; margin-top:-4px; }
 
     .actions{ display:flex; gap:8px; align-items:center; }
-    .btn{ padding:8px 12px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer; }
-    .btn.ghost{ background:transparent; color:var(--accent); border:1px solid rgba(11,103,255,0.08); }
+    .btn{ padding:8px 12px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer; box-shadow: 0 6px 18px rgba(11,103,255,0.08); }
+    .btn.ghost{ background:transparent; color:var(--accent); border:1px solid rgba(11,103,255,0.08); box-shadow:none; }
     .btn.secondary{ background:#f1f5f9; color:#0b1724; border:1px solid var(--border); }
     .btn.outline{ background:transparent; border:1px solid var(--border); color:#0b1724; }
 
@@ -32,7 +32,7 @@
     .container { max-width:1280px; margin:0 auto; }
 
     /* Hero */
-    .hero-area{ padding:6px 0 18px 0; }
+    .hero-area{ padding:6px 0 18px 0; display:flex; gap:24px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; }
     .hero-left h1{ margin:18px 0 6px; font-size:28px; color:#08304a; }
     .lead{ color:var(--muted); max-width:980px; }
 
@@ -68,11 +68,13 @@
     .form-row{ margin-bottom:12px; }
 
     @media (max-width:1150px){ .dashboard-grid{ grid-template-columns: 360px 1fr; } }
-    @media (max-width:900px){ .dashboard-grid{ grid-template-columns: 1fr; } #ticketsList{ max-height: 260px; } .ticket-detail{ max-height: 360px; } }
+    @media (max-width:900px){ .dashboard-grid{ grid-template-columns: 1fr; } #ticketsList{ max-height: 260px; } .ticket-detail{ max-height: 360px; } .hero-area{ flex-direction:column; } }
 
     .small{ font-size:13px; color:var(--muted); }
     .muted{ color:var(--muted); }
     .pwd-toggle { cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+    /* small helpers for links */
+    .linkish { background:transparent; border:none; color:var(--accent); cursor:pointer; padding:0; font:inherit; text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -101,7 +103,7 @@
 
       <!-- CARTÃO PRINCIPAL - LOGIN -->
       <section id="hero" class="hero-area">
-        <div class="hero-left">
+        <div class="hero-left" style="flex:1;min-width:260px">
           <h1>Bem-vindo à <strong>He_Net</strong></h1>
           <p class="lead">Central de suporte para sua equipe — abra, acompanhe e resolva chamados com eficiência. Atribua técnicos, registre comentários e acompanhe o histórico dos atendimentos.</p>
         </div>
@@ -124,21 +126,59 @@
                 <label style="display:flex;align-items:center;gap:8px;font-size:14px">
                   <input id="rememberMe" type="checkbox" style="width:16px;height:16px;margin:0"> Manter conectado
                 </label>
-                <a href="#" class="mini">Esqueci a senha</a>
+                <button id="forgotBtn" class="linkish" type="button">Esqueci a senha</button>
               </div>
 
               <div style="display:flex;gap:8px;margin-top:12px">
                 <button id="loginBtnInline" class="btn" type="button">Entrar</button>
-                <button id="openPublic" class="btn ghost" type="button" onclick="location.href='/submit.html'">Abrir chamado</button>
+                <button id="openPublic" class="btn ghost" type="button">Abrir chamado</button>
               </div>
 
               <div id="loginResult" class="small" style="margin-top:10px;color:#c00;min-height:18px"></div>
+
             </form>
+
+            <div style="margin-top:12px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div class="small muted">Ainda não tem conta?</div>
+                <button id="showRegisterBtn" class="btn ghost" style="padding:6px 10px">Criar conta</button>
+              </div>
+            </div>
 
             <div class="small muted" style="margin-top:10px">
               Use sua conta interna para gerenciar chamados. Para clientes, use o botão <strong>Abrir chamado</strong> para enviar solicitações públicas.
             </div>
           </div>
+
+          <!-- REGISTER CARD (hidden by default) -->
+          <div id="registerCard" class="card" style="max-width:480px; margin-top:12px; display:none">
+            <h3>Criar Conta — Operador</h3>
+            <form id="registerForm" onsubmit="return false;">
+              <label class="label">Nome completo</label>
+              <input id="regName" class="input" type="text" placeholder="Seu nome" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
+
+              <label class="label" style="margin-top:10px">E-mail</label>
+              <input id="regEmail" class="input" type="email" placeholder="seu@email.com" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
+
+              <label class="label" style="margin-top:10px">Senha</label>
+              <input id="regPassword" class="input" type="password" placeholder="Senha (mín. 6 chars)" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
+
+              <label class="label" style="margin-top:10px">Confirmar senha</label>
+              <input id="regPassword2" class="input" type="password" placeholder="Repita a senha" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
+
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button id="registerSubmit" class="btn" type="button">Enviar registro</button>
+                <button id="cancelRegister" class="btn ghost" type="button">Cancelar</button>
+              </div>
+
+              <div id="registerResult" class="small" style="margin-top:10px;min-height:18px"></div>
+
+              <div class="small muted" style="margin-top:8px">
+                O cadastro será criado como <strong>Operador</strong> e ficará pendente de aprovação do administrador. Você será notificado por e-mail quando aprovado.
+              </div>
+            </form>
+          </div>
+
         </div>
       </section>
 
@@ -164,26 +204,7 @@
 
               <div class="tickets-list-wrap">
                 <div id="ticketsList">
-                  <div class="ticket-item" data-id="12345" data-status="new">
-                    <div class="ticket-meta">
-                      <div class="title">#12345 - Problema na conexão</div>
-                      <div class="sub">ítalo willer • 23/09/2025, 14:38:21</div>
-                    </div>
-                    <div style="display:flex;align-items:flex-start">
-                      <div class="status-badge status-new">Novo</div>
-                    </div>
-                  </div>
-
-                  <div class="ticket-item" data-id="12346" data-status="in_progress">
-                    <div class="ticket-meta">
-                      <div class="title">#12346 - Impressora não funciona</div>
-                      <div class="sub">Técnico • 23/09/2025, 11:58:24</div>
-                    </div>
-                    <div style="display:flex;align-items:flex-start">
-                      <div class="status-badge status-progress">Em andamento</div>
-                    </div>
-                  </div>
-
+                  <!-- exemplo estático — o app.js carregará dinamicamente -->
                 </div>
               </div>
             </div>
@@ -211,151 +232,148 @@
 
   <footer class="footer" style="padding:18px 0;text-align:center;color:var(--muted)">He_Net — Central de Suporte</footer>
 
+  <!-- seu app.js (se existir) e checagem admin -->
   <script src="/app.js"></script>
   <script src="/admin-check.js"></script>
 
+  <!-- Script local: garante que os botões e formulários funcionem mesmo se app.js não registrar listeners -->
   <script>
     (function(){
-      const stored = localStorage.getItem('henet_remember');
-      if (stored) {
-        try {
+      // --- Helpers fetch ---
+      async function postJSON(url, body) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
+        const text = await res.text();
+        try { return { ok: res.ok, status: res.status, body: text ? JSON.parse(text) : null }; } catch(e) { return { ok: res.ok, status: res.status, body: text }; }
+      }
+
+      // preenche campos de remember
+      try {
+        const stored = localStorage.getItem('henet_remember');
+        if (stored) {
           const o = JSON.parse(stored);
           if (o && o.email) document.getElementById('email').value = o.email;
           if (o && o.remember) document.getElementById('rememberMe').checked = true;
-        } catch(e){}
-      }
+        }
+      } catch(e){}
 
+      // toggle senha
       const pwd = document.getElementById('password');
-      const btn = document.getElementById('togglePwd');
-      btn?.addEventListener('click', ()=> {
+      const toggleBtn = document.getElementById('togglePwd');
+      toggleBtn?.addEventListener('click', () => {
         if (!pwd) return;
-        if (pwd.type === 'password') { pwd.type = 'text'; btn.textContent = '🙈'; }
-        else { pwd.type = 'password'; btn.textContent = '👁️'; }
+        if (pwd.type === 'password') { pwd.type = 'text'; toggleBtn.textContent = '🙈'; }
+        else { pwd.type = 'password'; toggleBtn.textContent = '👁️'; }
       });
 
-      const rememberCheckbox = document.getElementById('rememberMe');
-      async function handleLogin() {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        if (!email || !password) {
-          document.getElementById('loginResult').innerText = 'Preencha email e senha';
-          return;
+      // NAV buttons (safe inline wiring)
+      document.getElementById('toSubmit')?.addEventListener('click', ()=> { window.location.href = '/submit'; });
+      document.getElementById('openPublic')?.addEventListener('click', ()=> { window.location.href = '/submit'; });
+      document.getElementById('openAdmin')?.addEventListener('click', ()=> { window.location.href = '/admin'; });
+      document.getElementById('openReports')?.addEventListener('click', ()=> { window.location.href = '/superadmin-reports'; });
+
+      // show register card
+      document.getElementById('showRegisterBtn')?.addEventListener('click', ()=>{
+        document.getElementById('registerCard').style.display = 'block';
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('registerResult').innerText = '';
+      });
+      document.getElementById('cancelRegister')?.addEventListener('click', ()=>{
+        document.getElementById('registerCard').style.display = 'none';
+        document.getElementById('loginCard').style.display = 'block';
+      });
+
+      // login handler
+      async function doLogin() {
+        const email = (document.getElementById('email')?.value || '').trim();
+        const password = document.getElementById('password')?.value || '';
+        const out = document.getElementById('loginResult');
+        if (!email || !password) { if (out) out.innerText = 'Preencha email e senha'; return; }
+        if (out) { out.innerText = 'Aguarde...'; out.style.color = '#333'; }
+
+        try {
+          const r = await postJSON('/api/login', { email, password });
+          if (r.ok) {
+            // salvar remember
+            const remember = document.getElementById('rememberMe')?.checked;
+            if (remember) localStorage.setItem('henet_remember', JSON.stringify({ email, remember: true }));
+            else localStorage.removeItem('henet_remember');
+
+            // atualizar UI: delega para app.js se tiver função checkMe, caso contrário recarrega
+            if (typeof window.checkMe === 'function') {
+              try { await window.checkMe(); } catch(e){}
+            }
+            location.reload();
+          } else {
+            if (r.status === 403 && r.body && r.body.error === 'awaiting_approval') {
+              if (out) { out.style.color = '#c00'; out.innerText = 'Conta pendente de aprovação pelo administrador.'; }
+            } else {
+              if (out) { out.style.color = '#c00'; out.innerText = (r.body && (r.body.error || r.body.message)) || 'Erro ao autenticar'; }
+            }
+          }
+        } catch (e) {
+          if (out) { out.style.color = '#c00'; out.innerText = 'Erro de rede'; }
+          console.error('login err', e);
         }
-        document.getElementById('loginResult').innerText = 'Aguarde...';
-        document.getElementById('loginBtnInline').dispatchEvent(new Event('doLogin'));
-
-        setTimeout(()=> {
-          if (rememberCheckbox.checked) localStorage.setItem('henet_remember', JSON.stringify({ email, remember:true }));
-          else localStorage.removeItem('henet_remember');
-        }, 600);
       }
 
-      document.getElementById('loginBtnInline')?.addEventListener('click', handleLogin);
-      document.getElementById('loginBtn')?.addEventListener('click', ()=> {
-        document.getElementById('loginCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
+      document.getElementById('loginBtnInline')?.addEventListener('click', doLogin);
 
-      document.getElementById('openAdmin')?.addEventListener('click', ()=>{ window.location.href = '/admin'; });
-      document.getElementById('openReports')?.addEventListener('click', ()=>{ window.location.href = '/reports'; });
+      // register handler
+      document.getElementById('registerSubmit')?.addEventListener('click', async () => {
+        const name = (document.getElementById('regName')?.value || '').trim();
+        const email = (document.getElementById('regEmail')?.value || '').trim();
+        const pass = document.getElementById('regPassword')?.value || '';
+        const pass2 = document.getElementById('regPassword2')?.value || '';
+        const out = document.getElementById('registerResult');
 
-      function tryShowDashboardIfLogged() {
-        const demoLogged = localStorage.getItem('henet_demo_logged') === '1';
-        if (demoLogged) {
-          document.getElementById('dashboard').style.display = 'block';
-          document.getElementById('hero').style.display = 'none';
-          document.getElementById('logoutBtn').style.display = 'inline-block';
-          document.getElementById('loginBtn').style.display = 'none';
-        }
-      }
-      tryShowDashboardIfLogged();
+        if (!name || !email || !pass) { if (out) { out.style.color='#c00'; out.innerText = 'Preencha todos os campos'; } return; }
+        if (pass.length < 6) { if (out) { out.style.color='#c00'; out.innerText = 'Senha muito curta (min 6)'; } return; }
+        if (pass !== pass2) { if (out) { out.style.color='#c00'; out.innerText = 'Senhas não coincidem'; } return; }
 
-      const ticketsList = document.getElementById('ticketsList');
-      const ticketDetail = document.getElementById('ticketDetail');
-      const filterSelect = document.getElementById('filterStatus');
-
-      function clearSelected(){
-        document.querySelectorAll('.ticket-item.selected').forEach(el=>el.classList.remove('selected'));
-      }
-
-      function renderDetailFromItem(item){
-        const id = item.getAttribute('data-id');
-        const title = item.querySelector('.title')?.textContent || item.textContent.trim();
-        const sub = item.querySelector('.sub')?.textContent || '';
-        const status = item.getAttribute('data-status') || 'in_progress';
-
-        ticketDetail.innerHTML = `
-          <p style="margin:0 0 6px"><strong>Número:</strong> #${id}</p>
-          <p style="margin:0 0 6px"><strong>Título:</strong> ${title}</p>
-          <p class="small muted" style="margin:0 0 12px">${sub}</p>
-
-          <div class="form-row">
-            <label class="small">Status</label>
-            <div style="margin-top:6px">
-              <select style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border)">
-                <option ${status==='new'?'selected':''} value="new">Novo</option>
-                <option ${status==='in_progress'?'selected':''} value="in_progress">Em andamento</option>
-                <option ${status==='resolved'?'selected':''} value="resolved">Concluído</option>
-                <option ${status==='closed'?'selected':''} value="closed">Fechado</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <label class="small">Descrição</label>
-            <div style="margin-top:6px">
-              <textarea style="width:100%;min-height:160px;padding:10px;border-radius:8px;border:1px solid var(--border)">Exemplo de descrição do chamado #${id}. Substitua por seus dados reais vindo do backend.</textarea>
-            </div>
-          </div>
-
-          <div style="display:flex;gap:10px;margin-top:8px">
-            <button class="btn">Salvar</button>
-            <button class="btn ghost">Atribuir</button>
-            <button class="btn ghost">Fechar</button>
-          </div>
-        `;
-
-        item.scrollIntoView({ behavior:'smooth', block:'center' });
-        if (window.innerWidth <= 900) ticketDetail.scrollIntoView({ behavior:'smooth', block:'start' });
-      }
-
-      ticketsList.addEventListener('click', (ev) => {
-        const item = ev.target.closest('.ticket-item');
-        if (!item) return;
-        clearSelected();
-        item.classList.add('selected');
-        renderDetailFromItem(item);
-      });
-
-      filterSelect?.addEventListener('change', () => {
-        const val = filterSelect.value;
-        document.querySelectorAll('#ticketsList .ticket-item').forEach(it=>{
-          if(!val) it.style.display = '';
-          else it.style.display = (it.getAttribute('data-status') === val) ? '' : 'none';
-        });
-        clearSelected();
-        ticketDetail.innerHTML = 'Selecione um chamado para ver detalhes';
-      });
-
-      document.getElementById('refreshBtn')?.addEventListener('click', ()=>{
-        clearSelected();
-        ticketDetail.innerHTML = '<div class="small muted">Lista atualizada — selecione um chamado.</div>';
-      });
-
-      document.getElementById('logoutBtn')?.addEventListener('click', ()=>{
-        localStorage.removeItem('henet_demo_logged');
-        document.getElementById('dashboard').style.display = 'none';
-        document.getElementById('hero').style.display = 'block';
-        document.getElementById('logoutBtn').style.display = 'none';
-        document.getElementById('loginBtn').style.display = 'inline-block';
-      });
-
-      window.addEventListener('load', ()=>{
-        const first = document.querySelector('#ticketsList .ticket-item');
-        if(first){
-          first.classList.add('selected');
-          renderDetailFromItem(first);
+        try {
+          const r = await postJSON('/api/register', { name, email, password: pass });
+          if (r.ok) {
+            if (out) { out.style.color='#059669'; out.innerText = r.body && r.body.message ? r.body.message : 'Cadastro enviado. Aguarde aprovação do administrador.'; }
+            // limpar
+            document.getElementById('regName').value = '';
+            document.getElementById('regEmail').value = '';
+            document.getElementById('regPassword').value = '';
+            document.getElementById('regPassword2').value = '';
+            // manter o usuário na tela de login (ou voltar)
+            setTimeout(()=> {
+              document.getElementById('registerCard').style.display = 'none';
+              document.getElementById('loginCard').style.display = 'block';
+            }, 1000);
+          } else {
+            if (out) { out.style.color='#c00'; out.innerText = (r.body && (r.body.error || r.body.message)) || 'Erro ao registrar'; }
+          }
+        } catch (e) {
+          if (out) { out.style.color='#c00'; out.innerText = 'Erro de rede'; }
+          console.error('register err', e);
         }
       });
+
+      // logout button (front-end trigger)
+      document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+        try {
+          await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+        } catch(e){}
+        location.reload();
+      });
+
+      // If page has ?awaiting=1 show friendly message
+      try {
+        const qs = new URLSearchParams(location.search);
+        if (qs.get('awaiting') === '1') {
+          const rr = document.getElementById('registerResult');
+          if (rr) { rr.style.color = '#059669'; rr.innerText = 'Registro recebido — sua conta aguarda aprovação do administrador.'; }
+          // remove param visually
+          try { const url = new URL(location.href); url.searchParams.delete('awaiting'); history.replaceState(null, '', url.pathname + url.search); } catch(e){}
+        }
+      } catch(e){}
+
+      // expose a small helper to app.js if it wants to call checkMe
+      window.frontendHelpers = { doLogin };
 
     })();
   </script>

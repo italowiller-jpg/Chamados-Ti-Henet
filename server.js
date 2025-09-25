@@ -1,4 +1,4 @@
-// server.js - Versão final com SSE (Server-Sent Events) integrado
+// server.js - completo com suporte a registro pendente de aprovação (entrega final)
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
@@ -11,7 +11,8 @@ import fs from 'fs';
 import helmet from 'helmet';
 import crypto from 'crypto';
 import MongoStore from 'connect-mongo';
-import { WebClient } from '@slack/web-api'; // adicionado para Slack
+import { WebClient } from '@slack/web-api';
+import fetch from 'node-fetch'; // compatibilidade para Node < 18; se estiver em Node >= 18, ok também
 
 const app = express();
 const __dirname = path.resolve();
@@ -27,6 +28,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, unique: true, sparse: true },
   password: String,
   role: { type: String, default: 'operator' },
+  approved: { type: Boolean, default: false }, // novo campo
   created_at: { type: Date, default: Date.now }
 });
 
@@ -87,6 +89,15 @@ const Attachment = mongoose.model('Attachment', attachmentSchema);
 const Comment = mongoose.model('Comment', commentSchema);
 const Counter = mongoose.model('Counter', counterSchema);
 
+// Signup token model (usado por Slack/set-password)
+const signupTokenSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  token: String,
+  expires_at: Date,
+  created_at: { type: Date, default: Date.now }
+});
+const SignupToken = mongoose.model('SignupToken', signupTokenSchema);
+
 // --- Middleware ---
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
@@ -110,7 +121,8 @@ const upload = multer({ dest: uploadDir });
   const count = await User.countDocuments();
   if (count === 0) {
     const hash = await bcrypt.hash('admin', 10);
-    await User.create({ name: 'Super Admin', email: 'admin@localhost', password: hash, role: 'superadmin' });
+    // superadmin criado aprovado por padrão
+    await User.create({ name: 'Super Admin', email: 'admin@localhost', password: hash, role: 'superadmin', approved: true });
     console.log('Usuário padrão criado: admin@localhost / senha: admin');
   }
 })();
@@ -166,14 +178,22 @@ function broadcastEvent(eventName, payload) {
 // --- end SSE ---
 
 // --- AUTH ---
+// login now checks approved flag
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Credenciais inválidas' });
     const user = await User.findOne({ email }).lean();
     if (!user) return res.status(400).json({ error: 'Credenciais inválidas' });
+
+    // if user is not approved, deny login with specific message
+    if (!user.approved) {
+      return res.status(403).json({ error: 'awaiting_approval', message: 'Conta pendente de aprovação pelo administrador.' });
+    }
+
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: 'Credenciais inválidas' });
+
     req.session.user = { id: user._id.toString(), name: user.name, email: user.email, role: user.role };
     safeJson(res, { ok: true, user: req.session.user });
   } catch (e) {
@@ -190,30 +210,55 @@ app.post('/api/logout', (req, res) => {
 });
 app.get('/api/me', (req, res) => safeJson(res, req.session.user || null));
 
-// --- USERS ---
+// --- PUBLIC REGISTER (novo) ---
+// Cria usuário com role 'operator' e approved: false
+app.post('/api/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+
+    // check if email already exists
+    const existing = await User.findOne({ email }).lean();
+    if (existing) return res.status(409).json({ error: 'email_exists', message: 'E-mail já cadastrado' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const u = await User.create({ name, email, password: hash, role: 'operator', approved: false });
+    // não logar automaticamente — requer aprovação
+    safeJson(res, { ok: true, message: 'Cadastro enviado. Aguarde aprovação do administrador.' });
+    // opcional: notificar admins (Slack / e-mail) - você pode implementar aqui
+  } catch (err) {
+    console.error('POST /api/register', err);
+    res.status(500).json({ error: 'server_error', message: err.message });
+  }
+});
+
+// --- USERS (admin endpoints) ---
 app.get('/api/users', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const users = await User.find({}, { password: 0 }).sort({ _id: -1 }).lean();
-  const mapped = users.map(u => ({ id: u._id.toString(), name: u.name, email: u.email, role: u.role, created_at: u.created_at }));
+  const mapped = users.map(u => ({ id: u._id.toString(), name: u.name, email: u.email, role: u.role, approved: !!u.approved, created_at: u.created_at }));
   safeJson(res, mapped);
 });
 
+// admin creates user -> auto-approved (admin invoked)
 app.post('/api/users', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
   try {
     const hash = await bcrypt.hash(password, 10);
-    const u = await User.create({ name, email, password: hash, role: role || 'operator' });
+    const u = await User.create({ name, email, password: hash, role: role || 'operator', approved: true });
     safeJson(res, { id: u._id.toString() });
   } catch (err) { console.error('POST /api/users', err); res.status(500).json({ error: err.message }); }
 });
 
-// ---- CORREÇÃO: PUT /api/users/:id -> agora hash da senha quando enviada ----
+// PUT /api/users/:id - allow admin to change name/role/password and approved
 app.put('/api/users/:id', requireLogin, requireRoles('admin','superadmin'), async (req, res) => {
   try {
     const payload = {
       name: req.body.name,
       role: req.body.role
     };
+
+    if (typeof req.body.approved === 'boolean') payload.approved = req.body.approved;
 
     if (req.body.password && typeof req.body.password === 'string' && req.body.password.trim() !== '') {
       const hashed = await bcrypt.hash(req.body.password, 10);
@@ -552,22 +597,11 @@ app.get('/admin', requireLogin, requireRoles('admin','superadmin'), (req, res) =
 app.get('/superadmin-reports', requireLogin, requireRoles('superadmin'), (req, res) => res.sendFile(path.join(__dirname, 'public', 'superadmin-reports.html')));
 
 // ---------- Início do bloco Slack Integration ----------
-// Requer: SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET, SLACK_BOT_TOKEN, SLACK_REDIRECT_URI
-
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN || '');
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET;
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
-const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI; // configurar no Slack App
-
-// Modelo para token de finalização de cadastro (signup token)
-const signupTokenSchema = new mongoose.Schema({
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  token: String,
-  expires_at: Date,
-  created_at: { type: Date, default: Date.now }
-});
-const SignupToken = mongoose.model('SignupToken', signupTokenSchema);
+const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI;
 
 // Helper: verificação da assinatura do Slack (requer raw body)
 function verifySlackRequest(req) {
@@ -684,7 +718,8 @@ app.get('/auth/slack/callback', async (req, res) => {
     let user = null;
     if (email) user = await User.findOne({ email }).lean();
     if (!user) {
-      const created = await User.create({ name: displayName || 'Slack User', email: email || undefined, role: 'operator' });
+      // explicitamente deixamos approved = false para novos usuários via Slack
+      const created = await User.create({ name: displayName || 'Slack User', email: email || undefined, role: 'operator', approved: false });
       user = created.toObject ? created.toObject() : created;
     }
 
@@ -694,12 +729,19 @@ app.get('/auth/slack/callback', async (req, res) => {
       const token = crypto.randomBytes(20).toString('hex');
       const st = await SignupToken.create({ user_id: user._id, token, expires_at: new Date(Date.now() + 1000 * 60 * 60) }); // 1h
       // redirect to front-end set password page with token
-      const redirectUrl = `/set-password.html?token=${token}`;
+      // Note: user ainda não aprovado; após set-password o ADM precisará aprovar.
+      const redirectUrl = `/set-password.html?token=${token}&awaiting=1`;
       return res.redirect(302, redirectUrl);
     } else {
-      // if user has password, create session and redirect to root
-      req.session.user = { id: String(user._id), name: user.name, email: user.email, role: user.role };
-      return res.redirect(302, '/');
+      // usuário já tem senha — MAS precisa estar aprovado para receber sessão
+      if (user.approved) {
+        req.session.user = { id: String(user._id), name: user.name, email: user.email, role: user.role };
+        return res.redirect(302, '/');
+      } else {
+        // Se não aprovado, redirecionamos para uma página informativa aguardando aprovação
+        // Pode reutilizar index.html com query param (ex: /?awaiting=1) ou enviar um HTML específico.
+        return res.redirect(302, '/awaiting-approval.html');
+      }
     }
   } catch (e) {
     console.error('/auth/slack/callback error', e);
@@ -720,10 +762,18 @@ app.post('/set-password', async (req, res) => {
     await User.findByIdAndUpdate(st.user_id, { $set: { password: hashed } });
     await SignupToken.deleteOne({ _id: st._id });
 
-    // optional: auto-login
+    // Busca usuário atualizado para checar approved
     const u = await User.findById(st.user_id).lean();
-    req.session.user = { id: String(u._id), name: u.name, email: u.email, role: u.role };
-    safeJson(res, { ok: true, redirect: '/' });
+    if (!u) return res.status(500).json({ error: 'user_not_found' });
+
+    if (u.approved) {
+      // se já aprovado, podemos auto-login
+      req.session.user = { id: String(u._id), name: u.name, email: u.email, role: u.role };
+      safeJson(res, { ok: true, redirect: '/' });
+    } else {
+      // se não aprovado, não logar automaticamente; informar que aguarda aprovação
+      safeJson(res, { ok: true, message: 'Senha salva. Sua conta aguarda aprovação do administrador antes de permitir acesso.' });
+    }
   } catch (e) {
     console.error('POST /set-password error', e);
     res.status(500).json({ error: 'server_error' });
