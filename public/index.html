@@ -58,8 +58,8 @@
 
     .status-badge{ font-size:12px; padding:6px 8px; border-radius:12px; font-weight:600; min-width:84px; text-align:center; }
     .status-new{ background:#eff6ff; color:#0b67ff; border:1px solid rgba(11,103,255,0.08); }
-    .status-progress{ background:#fff7ed; color:#ff8a00; border:1px solid rgba(255,138,0,0.08); }
-    .status-done{ background:#f0fdf4; color:#059669; border:1px solid rgba(5,150,105,0.06); }
+    .status-in_progress{ background:#fff7ed; color:#ff8a00; border:1px solid rgba(255,138,0,0.08); }
+    .status-resolved{ background:#f0fdf4; color:#059669; border:1px solid rgba(5,150,105,0.06); }
     .status-closed{ background:#f3f4f6; color:#6b7280; border:1px solid rgba(99,102,106,0.04); }
 
     .right-col { display:flex; flex-direction:column; gap:14px; }
@@ -75,6 +75,30 @@
     .pwd-toggle { cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
     /* small helpers for links */
     .linkish { background:transparent; border:none; color:var(--accent); cursor:pointer; padding:0; font:inherit; text-decoration:underline; }
+
+    /*
+      ADIÇÕES (responsividade fina e correções) — Não removi nada do seu CSS original,
+      apenas acrescentei esses ajustes para consertar o layout mobile/pequenas telas.
+    */
+    @media (max-width:900px) {
+      /* garantir que cartões do lado direito/hero se expandam 100% */
+      .hero-right, .hero-right .card, .login-card, #registerCard { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+      /* permitir wrap dos botões do header */
+      .header .actions { flex-wrap: wrap; gap: 8px; }
+      /* reduzir altura da lista para caber sem cortar o detalhe */
+      #ticketsList { max-height: 30vh !important; padding-right: 4px; }
+      .ticket-detail { max-height: 50vh !important; }
+      /* entradas e botões ocupam toda largura no mobile */
+      .btn, .input, select, textarea { width: 100% !important; box-sizing: border-box; }
+      /* títulos dos chamados podem quebrar linha para evitar overflow */
+      .ticket-meta .title { white-space: normal; overflow: visible; }
+      /* ajustar badge mínima para telas menores */
+      .status-badge { min-width: 64px; padding:6px 6px; font-size:11px; }
+      /* garantir espaçamento do hero */
+      .hero-area { gap: 12px; }
+      main { padding-left: 12px; padding-right: 12px; }
+    }
+
   </style>
 </head>
 <body>
@@ -272,7 +296,7 @@
       document.getElementById('openReports')?.addEventListener('click', ()=> { window.location.href = '/superadmin-reports'; });
 
       // show register card
-      document.getElementById('showRegisterBtn')?.addEventListener('click', ()=>{
+      document.getElementById('showRegisterBtn')?.addEventListener('click', ()=>{ 
         document.getElementById('registerCard').style.display = 'block';
         document.getElementById('loginCard').style.display = 'none';
         document.getElementById('registerResult').innerText = '';

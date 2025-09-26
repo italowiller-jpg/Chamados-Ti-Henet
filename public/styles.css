@@ -154,4 +154,31 @@ textarea { min-height:120px; resize:vertical; }
 @media (max-width: 900px) {
   .split { grid-template-columns: 1fr; }
   .form-row { flex-direction: column; }
+  .btn, .input, select { width: 100%; }
 }
+
+/* ----------------------------
+   ADIÇÕES: pequenas correções para não quebrar layout
+   (preservando TODO o CSS acima)
+   ---------------------------- */
+
+@media (max-width:1150px){
+  /* manter comportamento semelhante ao inline CSS */
+  .dashboard-grid { grid-template-columns: 360px 1fr; }
+}
+
+@media (max-width:900px){
+  /* garantir cartões do hero e login ocupem a largura */
+  .hero-right, .login-card, #registerCard { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+  /* header buttons wrap */
+  .header .actions { flex-wrap: wrap; gap: 8px; }
+  /* adaptar lista/detalhe */
+  .tickets-list { max-height: 30vh !important; padding-right: 6px; }
+  .ticket-detail { max-height: 50vh !important; }
+  /* garantir inputs e botões em fullwidth */
+  .btn, .input, select, textarea { width: 100% !important; box-sizing: border-box; }
+  .ticket-meta .title { white-space: normal; overflow: visible; }
+  .status-badge { min-width: 64px; padding:6px 6px; font-size:11px; }
+}
+
+/* Fim das alterações (compatíveis) */
